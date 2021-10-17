@@ -1,3 +1,4 @@
+#include "generic.h"
 #include "thread-pool.h"
 
 #include <unistd.h>
@@ -15,6 +16,7 @@
 #include <errno.h>
 
 #define MAX_EVENTS 64
+#define BUFSIZE 1024
 
 
 void setnonblocking(int fd)
@@ -24,6 +26,45 @@ void setnonblocking(int fd)
         return;
     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
     return;
+}
+
+typedef struct argument {
+    int fd;
+} argument_t;
+
+void read_cb(void *argus)
+{
+    argument_t *argptr = (argument_t *)argus;
+    int fd = argptr->fd;
+    int nread;
+    char *buf;
+    printf("hello %d\n", fd);
+    buf = (char *)malloc(BUFSIZE);
+    while (1) {
+        errno = 0;
+        nread = read(fd, buf, BUFSIZE);
+        if (nread < 0)
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+                continue;
+        if (nread <= 0)
+            break;
+        
+        fprintf(stdout, "thread %ld, read \n", (long)pthread_self());
+        write(STDOUT_FILENO, buf, nread);
+    }
+    printf("end\n");
+}
+
+void connect_cb(void *argus)
+{
+    
+}
+
+void write_cb(void *argus)
+{
+    argument_t *argptr = (argument_t *)argus;
+    int fd = argptr->fd;
+    fprintf(stdout, "thread %ld, write hello world\n", (long)pthread_self());
 }
 
 
@@ -67,6 +108,11 @@ int main(int argc, char *argv[])
     if (!events)
         error("malloc");
 
+    threadpool_t *tp;
+    tp = threadpool_init(2, fix_num);
+    if (tp == NULL)
+        error("threadpool_init\n");
+
     while (1) {
         nr_events = epoll_wait(epfd, events, MAX_EVENTS, 0);
         if (nr_events < 0) {
@@ -81,24 +127,21 @@ int main(int argc, char *argv[])
 
                 // LOGD("listen: connect %d\n", connfd);
                 if (connfd > 0) {
-                    int opt;
                     setnonblocking(connfd);
 
-                   void *ptr;
-                    if (ptr == NULL)
-                        continue;
-
-                    // memset(ptr, 0, sizeof(http_request_t));
-                    // /* init session */
-                    // ptr->fd = connfd;
-                    // ptr->pos = ptr->buf;
-                    // ptr->last = ptr->buf;
-
-                    event.data.ptr = ptr;
+                    event.data.fd = connfd;
                     event.events = EPOLLIN | EPOLLOUT;
 
                     if (epoll_ctl(epfd, EPOLL_CTL_ADD, connfd, &event) < 0)
                         error("epoll_ctl");
+
+                    job_t *job = (job_t *)malloc(sizeof(job_t*));
+                    argument_t *argu = (argument_t *)malloc(sizeof(argument_t));
+                    argu->fd = connfd;
+                    job->jobfun = &read_cb;
+                    job->args = argu;
+
+                    threadpool_add_job(tp, job);
 
                 }
                 continue;
@@ -106,10 +149,12 @@ int main(int argc, char *argv[])
             else {
                 /* producer and consumer */
                 if (events[i].events & EPOLLIN) {
+
                     // do_request(events[i].data.ptr);
                 }
 
                 if (events[i].events & EPOLLOUT) {
+
                     // do_respond(events[i].data.ptr);
                 }
             }
