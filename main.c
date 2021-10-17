@@ -18,7 +18,6 @@
 #define MAX_EVENTS 64
 #define BUFSIZE 1024
 
-
 void setnonblocking(int fd)
 {
     int flags;
@@ -33,6 +32,12 @@ typedef struct argument {
     threadpool_t *tp;
     int index;
 } conn_argument_t;
+
+int connect_filter(void *argu)
+{
+    int *i = (int *)argu;
+    return (*i)%2;
+}
 
 // void read_cb(void *argus)
 // {

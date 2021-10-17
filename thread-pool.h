@@ -13,9 +13,13 @@
 /* ratio should >= 1.0 */
 #define JOB_WORKER_RATIO 1.0
 
+typedef int (filterfun)(void *);
+
+
 typedef struct job {
     void (*jobfun)(void *);
     void * args;
+    int id;
     struct job *next;
 } job_t;
 
@@ -48,6 +52,8 @@ typedef struct threadpool {
     int target_workernum;           /* used in fix mode, to change threads num */
     time_t last_workerchange;
     worker_t *worker_head;
+
+    filterfun *filterptr;
 
     int jobsnum;
     job_t *job_head;
