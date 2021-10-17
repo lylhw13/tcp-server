@@ -30,41 +30,70 @@ void setnonblocking(int fd)
 
 typedef struct argument {
     int fd;
-} argument_t;
+    threadpool_t *tp;
+    int index;
+} conn_argument_t;
 
-void read_cb(void *argus)
-{
-    argument_t *argptr = (argument_t *)argus;
-    int fd = argptr->fd;
-    int nread;
-    char *buf;
-    printf("hello %d\n", fd);
-    buf = (char *)malloc(BUFSIZE);
-    while (1) {
-        errno = 0;
-        nread = read(fd, buf, BUFSIZE);
-        if (nread < 0)
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-                continue;
-        if (nread <= 0)
-            break;
+// void read_cb(void *argus)
+// {
+//     argument_t *argptr = (argument_t *)argus;
+//     int fd = argptr->fd;
+//     int nread;
+//     char *buf;
+//     printf("hello %d\n", fd);
+//     buf = (char *)malloc(BUFSIZE);
+//     while (1) {
+//         errno = 0;
+//         nread = read(fd, buf, BUFSIZE);
+//         if (nread < 0)
+//             if (errno == EAGAIN || errno == EWOULDBLOCK)
+//                 continue;
+//         if (nread <= 0)
+//             break;
         
-        fprintf(stdout, "thread %ld, read \n", (long)pthread_self());
-        write(STDOUT_FILENO, buf, nread);
-    }
-    printf("end\n");
-}
+//         fprintf(stdout, "thread %ld, read \n", (long)pthread_self());
+//         write(STDOUT_FILENO, buf, nread);
+//     }
+//     printf("end\n");
+// }
+
 
 void connect_cb(void *argus)
 {
-    
-}
 
-void write_cb(void *argus)
-{
-    argument_t *argptr = (argument_t *)argus;
+    conn_argument_t *argptr = (conn_argument_t *)argus;
     int fd = argptr->fd;
-    fprintf(stdout, "thread %ld, write hello world\n", (long)pthread_self());
+    int i, n;
+    int epfd;
+    int maxevents;
+
+    epfd = epoll_create1(0);
+    if (epfd < 0)
+        error("epoll_create1");
+
+    while (1) {
+
+    }
+
+    struct epoll_event ev;
+    ev.data.fd = fd;
+    ev.events = EPOLLIN | EPOLLOUT;
+
+    epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &ev);
+
+    struct epoll_event *events;
+    events = (struct epoll_event*)malloc(sizeof(struct epoll_event) * maxevents);
+
+
+    while (1) {
+        n = epoll_wait(epfd, events, maxevents, 0);
+        for (i = 0; i< n; ++i) {
+            if (events[i].events & EPOLLIN) {
+
+            }
+        }
+    }
+
 }
 
 
@@ -136,7 +165,7 @@ int main(int argc, char *argv[])
                         error("epoll_ctl");
 
                     job_t *job = (job_t *)malloc(sizeof(job_t*));
-                    argument_t *argu = (argument_t *)malloc(sizeof(argument_t));
+                    conn_argument_t *argu = (conn_argument_t *)malloc(sizeof(conn_argument_t));
                     argu->fd = connfd;
                     job->jobfun = &read_cb;
                     job->args = argu;
@@ -148,15 +177,15 @@ int main(int argc, char *argv[])
             }
             else {
                 /* producer and consumer */
-                if (events[i].events & EPOLLIN) {
+                // if (events[i].events & EPOLLIN) {
 
-                    // do_request(events[i].data.ptr);
-                }
+                //     // do_request(events[i].data.ptr);
+                // }
 
-                if (events[i].events & EPOLLOUT) {
+                // if (events[i].events & EPOLLOUT) {
 
-                    // do_respond(events[i].data.ptr);
-                }
+                //     // do_respond(events[i].data.ptr);
+                // }
             }
         }   /* end for */
     }   /* end while */
