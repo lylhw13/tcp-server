@@ -12,6 +12,7 @@
 #include <string.h>
 #include <netdb.h>
 #include <sys/epoll.h>
+#include <sys/poll.h>
 #include <fcntl.h>
 #include <errno.h>
 
@@ -27,11 +28,15 @@ void setnonblocking(int fd)
     return;
 }
 
-typedef struct argument {
+typedef struct {
     int fd;
     threadpool_t *tp;
     int index;
 } conn_argument_t;
+
+typedef struct {
+
+} argument_t;
 
 int connect_filter(void *argu)
 {
@@ -61,6 +66,11 @@ int connect_filter(void *argu)
 //     }
 //     printf("end\n");
 // }
+
+typedef struct connection {
+    int fd;
+    struct connection *next;
+} connection_t;
 
 
 void connect_cb(void *argus)
@@ -109,6 +119,7 @@ int main(int argc, char *argv[])
     int listenfd;
     int currfd;
     int epfd;
+    int conn_loop_num = 2;
 
     struct sockaddr_storage cliaddr;
     socklen_t cliaddr_len;
@@ -143,9 +154,90 @@ int main(int argc, char *argv[])
         error("malloc");
 
     threadpool_t *tp;
-    tp = threadpool_init(2, fix_num);
+    tp = threadpool_init(conn_loop_num, fix_num);
     if (tp == NULL)
         error("threadpool_init\n");
+
+    typedef struct channel {
+        pthread_mutex_t lock;
+        pthread_cond_t notify;
+
+        int len;
+        connection_t *head;
+        connection_t *tail;
+    } channel_t;
+
+    channel_t *channel_arr = (channel_t *)calloc(conn_loop_num, sizeof(channel_t));
+    int idx = 0;
+    int i;
+
+    for (i = 0; i < conn_loop_num; ++i) {
+        job_t *job = (job_t *)malloc(sizeof(job_t*));
+        conn_argument_t *argu = (conn_argument_t *)malloc(sizeof(conn_argument_t));
+        argu->fd = connfd;
+        job->jobfun = &connect_cb;
+        job->args = argu;
+
+        threadpool_add_job(tp, job);
+    }
+
+    // here we only notify one listenfd
+    struct pollfd pfds[1];
+    pfds[1].fd = listenfd;
+    pfds[1].events = POLLIN;
+    
+
+    while (1) {
+        int connfd;
+        int numfds;
+        
+        errno = 0;
+        numfds = poll(pfds, 1, 0);
+        if (numfds < 0) {
+            if (errno == EAGAIN )
+                continue;
+
+            error("poll");
+        }
+        if (numfds == 0)    /* timeout */
+            continue;
+
+        if (pfds[0].revents & (POLLERR | POLLNVAL))
+            error("poll revents");
+
+        errno = 0;
+        connfd = accept(listenfd, (struct sockaddr *)&cliaddr, &cliaddr_len);
+        if (connfd < 0) {
+            if (errno == EWOULDBLOCK)
+                continue;
+            
+            error("accept");
+        }
+
+        /* Add connfd to current channel */
+        channel_t *channel_ptr = &channel_arr[idx % conn_loop_num];
+        int err;
+        err = pthread_mutex_trylock(&(channel_ptr->lock));
+        if (err == EBUSY)
+            continue;
+        if (err != 0)
+            error("try lock");
+        
+        connection_t *conn_ptr = (connection_t *)calloc(1, sizeof(connection_t));
+        conn_ptr->fd = connfd;
+        
+        if (channel_ptr->head == NULL) {
+            channel_ptr->head = conn_ptr;
+            channel_ptr->tail = conn_ptr;
+        }
+        else {
+            channel_ptr->tail->next = conn_ptr;
+            channel_ptr->tail = conn_ptr;
+        }
+        idx ++;
+    }
+
+
 
     while (1) {
         nr_events = epoll_wait(epfd, events, MAX_EVENTS, 0);
@@ -169,28 +261,8 @@ int main(int argc, char *argv[])
                     if (epoll_ctl(epfd, EPOLL_CTL_ADD, connfd, &event) < 0)
                         error("epoll_ctl");
 
-                    job_t *job = (job_t *)malloc(sizeof(job_t*));
-                    conn_argument_t *argu = (conn_argument_t *)malloc(sizeof(conn_argument_t));
-                    argu->fd = connfd;
-                    job->jobfun = &read_cb;
-                    job->args = argu;
-
-                    threadpool_add_job(tp, job);
-
                 }
                 continue;
-            }
-            else {
-                /* producer and consumer */
-                // if (events[i].events & EPOLLIN) {
-
-                //     // do_request(events[i].data.ptr);
-                // }
-
-                // if (events[i].events & EPOLLOUT) {
-
-                //     // do_respond(events[i].data.ptr);
-                // }
             }
         }   /* end for */
     }   /* end while */
