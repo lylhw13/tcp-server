@@ -53,8 +53,6 @@ typedef struct threadpool {
     time_t last_workerchange;
     worker_t *worker_head;
 
-    filterfun *filterptr;
-
     int jobsnum;
     job_t *job_head;
     job_t *job_tail;

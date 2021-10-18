@@ -28,12 +28,6 @@ void setnonblocking(int fd)
     return;
 }
 
-int connect_filter(void *argu)
-{
-    int *i = (int *)argu;
-    return (*i) % 2;
-}
-
 void read_cb(int fd)
 {
     // argument_t *argptr = (argument_t *)argus;
@@ -42,52 +36,31 @@ void read_cb(int fd)
     char *buf;
     printf("hello %d\n", fd);
     buf = (char *)malloc(BUFSIZE);
-    while (1) {
+    // while (1) {
         errno = 0;
         nread = read(fd, buf, BUFSIZE);
-        if (nread < 0)
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-                continue;
-        if (nread <= 0)
-            break;
+        // if (nread < 0)
+        //     if (errno == EAGAIN || errno == EWOULDBLOCK)
+        //         continue;
+        // if (nread <= 0)
+        //     break;
 
         fprintf(stdout, "thread %ld, read \n", (long)pthread_self());
         write(STDOUT_FILENO, buf, nread);
-    }
+    // }
     printf("end\n");
 }
 
-typedef struct connection
-{
-    int fd;
-    struct connection *next;
-} connection_t;
-
-typedef struct channel
-{
-    pthread_mutex_t lock;
-    pthread_cond_t notify;
-
-    int len;
-    connection_t *head;
-    connection_t *tail;
-} channel_t;
-
-// typedef struct
-// {
-//     // int index;
-//     channel_t *ptr;
-//     // threadpool_t *tp;
-// } conn_argument_t;
-
+/* infinite loop */
 void connect_cb(void *argus)
 {
-    // conn_argument_t *argptr = (conn_argument_t *)argus;
+    LOGD("connect loop in thread %ld\n", (long)pthread_self());
     channel_t *channel_ptr = (channel_t *)argus;
-    int fd;
     int i, n;
     int epfd;
     int nr_events;
+    connection_t *conn_ptr;
+
 
     epfd = epoll_create1(0);
     if (epfd < 0)
@@ -103,9 +76,9 @@ void connect_cb(void *argus)
             free(events);
             error("epoll_wait");
         }
-
         for (i = 0; i < nr_events; ++i) {
             if (events[i].events & EPOLLIN) {
+
                 read_cb(events[i].data.fd);   /* read cb */
             }
             if (events[i].events & EPOLLOUT) {
@@ -113,27 +86,31 @@ void connect_cb(void *argus)
             }
         } /* end for */
 
+
         int err;
         err = pthread_mutex_trylock(&(channel_ptr->lock));
+        // LOGD("error %d\n", err);
         if (err == EBUSY)
             continue;
         if (err != 0)
             error("try lock in thread");
-        connection_t *conn_ptr;
         if (channel_ptr->len == 0) {
             pthread_mutex_unlock(&(channel_ptr->lock));
             continue;
         }
-
         conn_ptr = channel_ptr->head;
+        // LOGD("ptr len %d\n", channel_ptr->len);
+
         channel_ptr->head = conn_ptr->next;
         channel_ptr->len --;
-        
-        struct epoll_event ev;
-        ev.data.fd = fd;
-        ev.events = EPOLLIN | EPOLLOUT;
 
-        if (epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &ev) != 0)
+        LOGD("loop get fd %d\n", conn_ptr->fd);
+        pthread_mutex_unlock(&(channel_ptr->lock));
+
+        struct epoll_event ev;
+        ev.data.fd = conn_ptr->fd;
+        ev.events = EPOLLIN | EPOLLOUT;
+        if (epoll_ctl(epfd, EPOLL_CTL_ADD, conn_ptr->fd, &ev) != 0)
             error("add fd to epoll in thread");
 
         free(conn_ptr);
@@ -145,13 +122,14 @@ void connect_cb(void *argus)
 int main(int argc, char *argv[])
 {
     char *port = "33333";
+    struct sockaddr_storage cliaddr;
+    socklen_t cliaddr_len;
     int listenfd, connfd;
+
     int numfds;
     int conn_loop_num = 2;
     int i, idx = 0;
 
-    struct sockaddr_storage cliaddr;
-    socklen_t cliaddr_len;
     char buf[BUFSIZ];
 
     /* prepare listen socket */
@@ -180,13 +158,14 @@ int main(int argc, char *argv[])
 
         job->jobfun = &connect_cb;
         job->args = &channel_arr[i];
+        /* because the job is infinite loop, so every thread only get one job */
         threadpool_add_job(tp, job);
     }
 
     /* poll */
     struct pollfd pfds[1];
-    pfds[1].fd = listenfd;
-    pfds[1].events = POLLIN;
+    pfds[0].fd = listenfd;
+    pfds[0].events = POLLIN;
 
     while (1) {
         errno = 0;
@@ -200,6 +179,9 @@ int main(int argc, char *argv[])
         }
         if (numfds == 0) /* timeout */
             continue;
+
+        LOGD("numfds %d\n", numfds);
+        
 
         if (pfds[0].revents & (POLLERR | POLLNVAL))
             error("poll revents");
@@ -215,6 +197,7 @@ int main(int argc, char *argv[])
         }
 
         setnonblocking(connfd);
+        LOGD("accept fd %d\n", connfd);
 
         /* Add connfd to current channel */
         channel_t *channel_ptr = &channel_arr[idx % conn_loop_num];
@@ -239,6 +222,7 @@ int main(int argc, char *argv[])
             channel_ptr->tail = conn_ptr;
         }
         channel_ptr->len ++;
+        LOGD("main ptr len %d\n", channel_ptr->len);
         idx++;
     }
 
