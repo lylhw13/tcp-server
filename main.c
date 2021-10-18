@@ -56,11 +56,11 @@ void connect_cb(void *argus)
 {
     LOGD("connect loop in thread %ld\n", (long)pthread_self());
     channel_t *channel_ptr = (channel_t *)argus;
+    LOGD("thread %ld loop address %p\n", (long)pthread_self(), channel_ptr);
     int i, n;
     int epfd;
     int nr_events;
     connection_t *conn_ptr;
-
 
     epfd = epoll_create1(0);
     if (epfd < 0)
@@ -78,7 +78,7 @@ void connect_cb(void *argus)
         }
         for (i = 0; i < nr_events; ++i) {
             if (events[i].events & EPOLLIN) {
-
+                LOGD("read cb\n");
                 read_cb(events[i].data.fd);   /* read cb */
             }
             if (events[i].events & EPOLLOUT) {
@@ -86,9 +86,11 @@ void connect_cb(void *argus)
             }
         } /* end for */
 
-
         int err;
         err = pthread_mutex_trylock(&(channel_ptr->lock));
+        LOGD("lock in thread\n");
+        LOGD("address %p, len %d\n", channel_ptr, channel_ptr->len);
+        sleep(5);
         // LOGD("error %d\n", err);
         if (err == EBUSY)
             continue;
@@ -158,6 +160,7 @@ int main(int argc, char *argv[])
 
         job->jobfun = &connect_cb;
         job->args = &channel_arr[i];
+        LOGD("channel address %p\n", job->args);
         /* because the job is infinite loop, so every thread only get one job */
         threadpool_add_job(tp, job);
     }
@@ -202,11 +205,13 @@ int main(int argc, char *argv[])
         /* Add connfd to current channel */
         channel_t *channel_ptr = &channel_arr[idx % conn_loop_num];
         int err;
-        err = pthread_mutex_trylock(&(channel_ptr->lock));
+        err = pthread_mutex_lock(&(channel_ptr->lock)); /* block */
         if (err == EBUSY)
             continue;
         if (err != 0)
             error("try lock");
+
+        LOGD("lock in main\n");
 
         connection_t *conn_ptr = (connection_t *)calloc(1, sizeof(connection_t));
         conn_ptr->fd = connfd;
@@ -222,7 +227,7 @@ int main(int argc, char *argv[])
             channel_ptr->tail = conn_ptr;
         }
         channel_ptr->len ++;
-        LOGD("main ptr len %d\n", channel_ptr->len);
+        LOGD("main ptr address %p, len %d\n",channel_ptr, channel_ptr->len);
         idx++;
     }
 
