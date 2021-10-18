@@ -28,6 +28,17 @@ void setnonblocking(int fd)
     return;
 }
 
+typedef struct connfd_again {
+    int fd;
+    int idx;
+    struct connfd_again *next;
+} connfd_again_t;
+
+typedef struct fd_list {
+    int fd;
+    struct fd_list *next;
+} fd_list_t;
+
 void read_cb(int fd)
 {
     // argument_t *argptr = (argument_t *)argus;
@@ -86,6 +97,9 @@ void connect_cb(void *argus)
             }
         } /* end for */
 
+        if (channel_ptr->len == 0)
+            continue;
+
         int err;
         err = pthread_mutex_trylock(&(channel_ptr->lock));
         LOGD("lock in thread\n");
@@ -118,6 +132,39 @@ void connect_cb(void *argus)
         free(conn_ptr);
 
     }     /* end while */
+}
+
+int add_fd_channel(channel_t *channel_ptr, int connfd)
+{
+    int err;
+    err = pthread_mutex_trylock(&(channel_ptr->lock)); /* block */
+    if (err == EBUSY) {
+        // connfd_again_t cat;
+        // cat->fd = connfd;
+        // continue;
+        return 0;
+    }
+    if (err != 0)
+        error("try lock");
+
+    LOGD("lock in main\n");
+
+    connection_t *conn_ptr = (connection_t *)calloc(1, sizeof(connection_t));
+    conn_ptr->fd = connfd;
+
+    if (channel_ptr->head == NULL)
+    {
+        channel_ptr->head = conn_ptr;
+        channel_ptr->tail = conn_ptr;
+    }
+    else
+    {
+        channel_ptr->tail->next = conn_ptr;
+        channel_ptr->tail = conn_ptr;
+    }
+    channel_ptr->len ++;
+    LOGD("main ptr address %p, len %d\n",channel_ptr, channel_ptr->len);
+    return 1;
 }
 
 /* single process */
@@ -170,6 +217,9 @@ int main(int argc, char *argv[])
     pfds[0].fd = listenfd;
     pfds[0].events = POLLIN;
 
+    connfd_again_t *connfd_again_ptr = NULL;
+    fd_list_t *fd_list_head = NULL;
+
     while (1) {
         errno = 0;
         numfds = poll(pfds, 1, 0);
@@ -204,31 +254,48 @@ int main(int argc, char *argv[])
 
         /* Add connfd to current channel */
         channel_t *channel_ptr = &channel_arr[idx % conn_loop_num];
-        int err;
-        err = pthread_mutex_lock(&(channel_ptr->lock)); /* block */
-        if (err == EBUSY)
-            continue;
-        if (err != 0)
-            error("try lock");
-
-        LOGD("lock in main\n");
-
-        connection_t *conn_ptr = (connection_t *)calloc(1, sizeof(connection_t));
-        conn_ptr->fd = connfd;
-
-        if (channel_ptr->head == NULL)
-        {
-            channel_ptr->head = conn_ptr;
-            channel_ptr->tail = conn_ptr;
+        if (add_fd_channel(channel_ptr, connfd) == 0) {
+            fd_list_t *curr = (fd_list_t *)malloc(sizeof(fd_list_t));
+            if (fd_list_head == NULL) {
+                fd_list_head = curr;
+            }
+            else {
+                curr->next = fd_list_head;
+                fd_list_head = curr;
+            }
         }
-        else
-        {
-            channel_ptr->tail->next = conn_ptr;
-            channel_ptr->tail = conn_ptr;
+        else {
+            // free()
+            idx++;
         }
-        channel_ptr->len ++;
-        LOGD("main ptr address %p, len %d\n",channel_ptr, channel_ptr->len);
-        idx++;
+        // int err;
+        // err = pthread_mutex_trylock(&(channel_ptr->lock)); /* block */
+        // if (err == EBUSY) {
+        //     connfd_again_t cat;
+        //     cat->fd = connfd;
+        //     continue;
+        // }
+        // if (err != 0)
+        //     error("try lock");
+
+        // LOGD("lock in main\n");
+
+        // connection_t *conn_ptr = (connection_t *)calloc(1, sizeof(connection_t));
+        // conn_ptr->fd = connfd;
+
+        // if (channel_ptr->head == NULL)
+        // {
+        //     channel_ptr->head = conn_ptr;
+        //     channel_ptr->tail = conn_ptr;
+        // }
+        // else
+        // {
+        //     channel_ptr->tail->next = conn_ptr;
+        //     channel_ptr->tail = conn_ptr;
+        // }
+        // channel_ptr->len ++;
+        // LOGD("main ptr address %p, len %d\n",channel_ptr, channel_ptr->len);
+        // idx++;
     }
 
     return 0;
