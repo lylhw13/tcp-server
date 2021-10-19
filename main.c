@@ -35,23 +35,12 @@ typedef struct connfd_again {
     struct connfd_again *next;
 } connfd_again_t;
 
-typedef struct fd_node {
-    int fd;
-    struct fd_node *next;
-} fd_node_t;
-
-typedef struct fd_node_list {
-    int len;
-    fd_node_t *head;
-    fd_node_t *tail;
-} fd_node_list_t;
-
 struct fd_entry {
     int fd;
-    STAILQ_ENTRY(fd_entry) fd_entries;
+    STAILQ_ENTRY(fd_entry) entries;
 };
 
-STAILQ_HEAD(fd_queue, fd_entry);
+STAILQ_HEAD(fdqueue, fd_entry);
 
 void read_cb(int fd)
 {
@@ -148,60 +137,16 @@ void connect_cb(void *argus)
     }     /* end while */
 }
 
-int add_fd_channel(channel_t *channel_ptr, int connfd)
+int add_fd_channel_queue(channel_t *channel_arr, int idx, int connfd, int conn_loop_num)
 {
+    // LOGD("try to add fd %d\n", connfd);
+    // sleep(5);
+    // return -connfd;
     int err;
-    err = pthread_mutex_trylock(&(channel_ptr->lock)); /* block */
-    if (err == EBUSY) {
-        // connfd_again_t cat;
-        // cat->fd = connfd;
-        // continue;
-        return 0;
-    }
-    if (err != 0)
-        error("try lock");
-
-    LOGD("lock in main\n");
-
-    connection_t *conn_ptr = (connection_t *)calloc(1, sizeof(connection_t));
-    conn_ptr->fd = connfd;
-
-    if (channel_ptr->head == NULL)
-    {
-        channel_ptr->head = conn_ptr;
-        channel_ptr->tail = conn_ptr;
-    }
-    else
-    {
-        channel_ptr->tail->next = conn_ptr;
-        channel_ptr->tail = conn_ptr;
-    }
-    channel_ptr->len ++;
-    LOGD("main ptr address %p, len %d\n",channel_ptr, channel_ptr->len);
-    return 1;
-}
-
-void add_fd_channel_new(channel_t *channel_arr, fd_node_list_t* fnl_ptr, int *idx, int connfd, int conn_loop_num)
-{
-
-    int err;
-    channel_t *channel_ptr = &channel_arr[*idx % conn_loop_num];
+    channel_t *channel_ptr = &channel_arr[idx % conn_loop_num];
     err = pthread_mutex_trylock(&(channel_ptr->lock));
     if (err == EBUSY) {
-        // again
-        fd_node_t *curr = (fd_node_t *)malloc(sizeof(fd_node_t));
-        curr->fd = connfd;
-
-        if (fnl_ptr->len == 0) {
-            fnl_ptr->head = curr;
-            fnl_ptr->tail = curr;
-        }
-        else {
-            fnl_ptr->tail->next = curr;
-            fnl_ptr->tail = curr;
-        }
-        fnl_ptr->len++;
-        return;
+        return -connfd;
     }
     if (err != 0)
         error("try lock");
@@ -220,25 +165,29 @@ void add_fd_channel_new(channel_t *channel_arr, fd_node_list_t* fnl_ptr, int *id
         channel_ptr->tail = conn_ptr;
     }
     channel_ptr->len ++;
-    *idx++;
+    // idx++;
     pthread_mutex_unlock(&(channel_ptr->lock));
     LOGD("main ptr address %p, len %d\n",channel_ptr, channel_ptr->len);
+    return 0;
     // return 1;
 }
 
-/* single process */
 int main(int argc, char *argv[])
 {
     char *port = "33333";
     struct sockaddr_storage cliaddr;
     socklen_t cliaddr_len;
     int listenfd, connfd;
+    struct pollfd pfds[1];
 
     int numfds;
     int conn_loop_num = 2;
     int i, idx = 0;
-
     char buf[BUFSIZ];
+
+    struct fdqueue fdqueue_head;
+    STAILQ_INIT(&fdqueue_head);
+
 
     /* prepare listen socket */
     listenfd = create_and_bind(port);
@@ -272,15 +221,44 @@ int main(int argc, char *argv[])
     }
 
     /* poll */
-    struct pollfd pfds[1];
     pfds[0].fd = listenfd;
     pfds[0].events = POLLIN;
-
-    connfd_again_t *connfd_again_ptr = NULL;
-    // fd_list_t *fd_list_head = NULL;
-    fd_node_list_t *fnl_ptr = (fd_node_list_t *)calloc(1, sizeof(fd_node_list_t));
+    struct fd_entry *curr;
 
     while (1) {
+        /* try to add residu connfd to channel */
+        // LOGD("begin\n");
+        if (STAILQ_EMPTY(&fdqueue_head) == 0) {
+            struct fdqueue fq_head_tmp;
+            STAILQ_INIT(&fq_head_tmp);
+            struct fd_entry *helper;
+
+            curr = STAILQ_FIRST(&fdqueue_head);
+
+            while (curr != NULL) {
+                helper = STAILQ_NEXT(curr, entries);
+
+                connfd = add_fd_channel_queue(channel_arr, idx, curr->fd, conn_loop_num);
+                if (connfd < 0) {
+                    connfd = -connfd;
+                    curr->fd = connfd;
+                    STAILQ_INSERT_TAIL(&fq_head_tmp, curr, entries);
+                } else {
+                    idx++;
+                    free(curr);
+                }
+
+                curr = helper;
+            }
+
+            fdqueue_head = fq_head_tmp;
+        }
+
+        // STAILQ_FOREACH(curr, &fdqueue_head, entries) printf("1 fd %d\n", curr->fd);
+        // LOGD("middle\n");
+        // sleep(5);
+
+        /* poll */
         errno = 0;
         numfds = poll(pfds, 1, 0);
         if (numfds < 0)
@@ -303,7 +281,7 @@ int main(int argc, char *argv[])
         connfd = accept(listenfd, (struct sockaddr *)&cliaddr, &cliaddr_len);
         if (connfd < 0)
         {
-            if (errno == EWOULDBLOCK)
+            if (errno != EWOULDBLOCK)
                 continue;
 
             error("accept");
@@ -313,57 +291,26 @@ int main(int argc, char *argv[])
         LOGD("accept fd %d\n", connfd);
 
         // /* Add connfd to current channel */
-        // add_fd_channel_new(channel_arr, fnl_ptr, &idx, connfd, conn_loop_num);
-
-        // if (fnl_ptr->len > 0) {
-        //     fd_node_list_t *fnl_ptr_tmp = (fd_node_list_t *)calloc(1, sizeof(fd_node_list_t));
-        //     while (fnl_ptr->len > 0) {
-                
-        //         add_fd_channel_new(channel_arr, fnl_ptr, &idx, connfd, conn_loop_num);
-
-        //     }
-        //     free(fnl_ptr_tmp);
-        // }
-
-        int err;
-        channel_t *channel_ptr = &channel_arr[idx % conn_loop_num];
-        err = pthread_mutex_trylock(&(channel_ptr->lock));
-        if (err == EBUSY) {
-            // again
-            // fd_node_t *curr = (fd_node_t *)malloc(sizeof(fd_node_t));
-            // curr->fd = connfd;
-
-            // if (fnl_ptr->len == 0) {
-            //     fnl_ptr->head = curr;
-            //     fnl_ptr->tail = curr;
-            // }
-            // else {
-            //     fnl_ptr->tail->next = curr;
-            //     fnl_ptr->tail = curr;
-            // }
-            // fnl_ptr->len++;
-            continue;
+        connfd = add_fd_channel_queue(channel_arr, idx, connfd, conn_loop_num);
+        if (connfd < 0) {
+            LOGD("add to queue\n");
+            connfd = -connfd;
+            curr = (struct fd_entry *)malloc(sizeof(struct fd_entry));
+            curr->fd = connfd;
+            STAILQ_INSERT_TAIL(&fdqueue_head, curr, entries);
         }
-        if (err != 0)
-            error("try lock");
+        else
+            idx++;
 
-        LOGD("lock in main\n");
+        // curr = STAILQ_FIRST(&fdqueue_head);
+        // if (curr == NULL)
+        //     LOGD("the head is NULL\n");
 
-        connection_t *conn_ptr = (connection_t *)calloc(1, sizeof(connection_t));
-        conn_ptr->fd = connfd;
+        // LOGD("queue empty %d\n", STAILQ_EMPTY(&fdqueue_head));
 
-        if (channel_ptr->len == 0) {
-            channel_ptr->head = conn_ptr;
-            channel_ptr->tail = conn_ptr;
-        }
-        else {
-            channel_ptr->tail->next = conn_ptr;
-            channel_ptr->tail = conn_ptr;
-        }
-        channel_ptr->len ++;
-        idx++;
-        pthread_mutex_unlock(&(channel_ptr->lock));
-        LOGD("main ptr address %p, len %d\n",channel_ptr, channel_ptr->len);
+        // STAILQ_FOREACH(curr, &fdqueue_head, entries) printf("2 fd %d\n", curr->fd);
+        // sleep(5);
+        // LOGD("end\n");
     }
 
     return 0;
