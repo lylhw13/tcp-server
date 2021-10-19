@@ -28,6 +28,7 @@ static void error(const char *str)
 }
 
 extern int create_and_bind(const char* port);
+extern void connect_cb(void *argus);
 
 
 #endif
