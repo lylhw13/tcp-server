@@ -35,10 +35,23 @@ typedef struct connfd_again {
     struct connfd_again *next;
 } connfd_again_t;
 
-typedef struct fd_list {
+typedef struct fd_node {
     int fd;
-    struct fd_list *next;
-} fd_list_t;
+    struct fd_node *next;
+} fd_node_t;
+
+typedef struct fd_node_list {
+    int len;
+    fd_node_t *head;
+    fd_node_t *tail;
+} fd_node_list_t;
+
+struct fd_entry {
+    int fd;
+    STAILQ_ENTRY(fd_entry) fd_entries;
+};
+
+STAILQ_HEAD(fd_queue, fd_entry);
 
 void read_cb(int fd)
 {
@@ -168,7 +181,7 @@ int add_fd_channel(channel_t *channel_ptr, int connfd)
     return 1;
 }
 
-void add_fd_channel_new(channel_t *channel_arr, fd_list_t** fd_list_head, int *idx, int connfd, int conn_loop_num)
+void add_fd_channel_new(channel_t *channel_arr, fd_node_list_t* fnl_ptr, int *idx, int connfd, int conn_loop_num)
 {
 
     int err;
@@ -176,15 +189,18 @@ void add_fd_channel_new(channel_t *channel_arr, fd_list_t** fd_list_head, int *i
     err = pthread_mutex_trylock(&(channel_ptr->lock));
     if (err == EBUSY) {
         // again
-        fd_list_t *curr = (fd_list_t *)malloc(sizeof(fd_list_t));
-        if (*fd_list_head == NULL) {
-            *fd_list_head = curr;
+        fd_node_t *curr = (fd_node_t *)malloc(sizeof(fd_node_t));
+        curr->fd = connfd;
+
+        if (fnl_ptr->len == 0) {
+            fnl_ptr->head = curr;
+            fnl_ptr->tail = curr;
         }
         else {
-            curr->next = *fd_list_head;
-            *fd_list_head = curr;
+            fnl_ptr->tail->next = curr;
+            fnl_ptr->tail = curr;
         }
-
+        fnl_ptr->len++;
         return;
     }
     if (err != 0)
@@ -195,18 +211,17 @@ void add_fd_channel_new(channel_t *channel_arr, fd_list_t** fd_list_head, int *i
     connection_t *conn_ptr = (connection_t *)calloc(1, sizeof(connection_t));
     conn_ptr->fd = connfd;
 
-    if (channel_ptr->head == NULL)
-    {
+    if (channel_ptr->len == 0) {
         channel_ptr->head = conn_ptr;
         channel_ptr->tail = conn_ptr;
     }
-    else
-    {
+    else {
         channel_ptr->tail->next = conn_ptr;
         channel_ptr->tail = conn_ptr;
     }
     channel_ptr->len ++;
     *idx++;
+    pthread_mutex_unlock(&(channel_ptr->lock));
     LOGD("main ptr address %p, len %d\n",channel_ptr, channel_ptr->len);
     // return 1;
 }
@@ -262,7 +277,8 @@ int main(int argc, char *argv[])
     pfds[0].events = POLLIN;
 
     connfd_again_t *connfd_again_ptr = NULL;
-    fd_list_t *fd_list_head = NULL;
+    // fd_list_t *fd_list_head = NULL;
+    fd_node_list_t *fnl_ptr = (fd_node_list_t *)calloc(1, sizeof(fd_node_list_t));
 
     while (1) {
         errno = 0;
@@ -296,19 +312,58 @@ int main(int argc, char *argv[])
         setnonblocking(connfd);
         LOGD("accept fd %d\n", connfd);
 
-        /* Add connfd to current channel */
-        add_fd_channel_new(channel_arr, &fd_list_head, &idx, connfd, conn_loop_num);
+        // /* Add connfd to current channel */
+        // add_fd_channel_new(channel_arr, fnl_ptr, &idx, connfd, conn_loop_num);
 
-        fd_list_t *dummy = (fd_list_t *)malloc(sizeof(fd_list_t));
-        if (dummy == NULL)
-            error("malloc dummy fd_list");
-        dummy->next = fd_list_head;
-        while (dummy->next != NULL) {
-            add_fd_channel_new(channel_arr, &fd_list_head, &idx, connfd, conn_loop_num);
-            dummy->next = dummy->next->next;
+        // if (fnl_ptr->len > 0) {
+        //     fd_node_list_t *fnl_ptr_tmp = (fd_node_list_t *)calloc(1, sizeof(fd_node_list_t));
+        //     while (fnl_ptr->len > 0) {
+                
+        //         add_fd_channel_new(channel_arr, fnl_ptr, &idx, connfd, conn_loop_num);
+
+        //     }
+        //     free(fnl_ptr_tmp);
+        // }
+
+        int err;
+        channel_t *channel_ptr = &channel_arr[idx % conn_loop_num];
+        err = pthread_mutex_trylock(&(channel_ptr->lock));
+        if (err == EBUSY) {
+            // again
+            // fd_node_t *curr = (fd_node_t *)malloc(sizeof(fd_node_t));
+            // curr->fd = connfd;
+
+            // if (fnl_ptr->len == 0) {
+            //     fnl_ptr->head = curr;
+            //     fnl_ptr->tail = curr;
+            // }
+            // else {
+            //     fnl_ptr->tail->next = curr;
+            //     fnl_ptr->tail = curr;
+            // }
+            // fnl_ptr->len++;
+            continue;
         }
+        if (err != 0)
+            error("try lock");
 
-        free(dummy);
+        LOGD("lock in main\n");
+
+        connection_t *conn_ptr = (connection_t *)calloc(1, sizeof(connection_t));
+        conn_ptr->fd = connfd;
+
+        if (channel_ptr->len == 0) {
+            channel_ptr->head = conn_ptr;
+            channel_ptr->tail = conn_ptr;
+        }
+        else {
+            channel_ptr->tail->next = conn_ptr;
+            channel_ptr->tail = conn_ptr;
+        }
+        channel_ptr->len ++;
+        idx++;
+        pthread_mutex_unlock(&(channel_ptr->lock));
+        LOGD("main ptr address %p, len %d\n",channel_ptr, channel_ptr->len);
     }
 
     return 0;
