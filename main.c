@@ -128,8 +128,45 @@ int main(int argc, char *argv[])
     struct fd_entry *curr;
 
     while (1) {
+        /* poll */
+        errno = 0;
+        numfds = poll(pfds, 1, 0);
+        if (numfds < 0 && errno != EAGAIN) {
+            error("poll");
+        }
+
+        // LOGD("numfds %d\n", numfds);
+
+        for (i = 0; i< numfds; ++i) {
+            /* check error */
+            if (pfds[i].revents & (POLLERR | POLLNVAL))
+                error("poll revents");
+
+            errno = 0;
+            connfd = accept(listenfd, (struct sockaddr *)&cliaddr, &cliaddr_len);
+            if (connfd < 0 && errno != EWOULDBLOCK) {
+                    error("accept");
+            }
+
+            if (connfd >=0) {
+                setnonblocking(connfd);
+                LOGD("accept fd %d\n", connfd);
+
+                // /* Add connfd to current channel */
+                connfd = add_fd_channel_queue(channel_arr, idx, connfd, conn_loop_num);
+                if (connfd < 0) {
+                    LOGD("add to queue\n");
+                    connfd = -connfd;
+                    curr = (struct fd_entry *)malloc(sizeof(struct fd_entry));
+                    curr->fd = connfd;
+                    STAILQ_INSERT_TAIL(&fdqueue_head, curr, entries);
+                }
+                else
+                    idx++;
+            }
+        }
+
         /* try to add residu connfd to channel */
-        // LOGD("begin\n");
         if (STAILQ_EMPTY(&fdqueue_head) == 0) {
             struct fdqueue fq_head_tmp;
             STAILQ_INIT(&fq_head_tmp);
@@ -149,70 +186,10 @@ int main(int argc, char *argv[])
                     idx++;
                     free(curr);
                 }
-
                 curr = helper;
             }
-
             fdqueue_head = fq_head_tmp;
         }
-
-        // STAILQ_FOREACH(curr, &fdqueue_head, entries) printf("1 fd %d\n", curr->fd);
-        // LOGD("middle\n");
-        // sleep(5);
-
-        /* poll */
-        errno = 0;
-        numfds = poll(pfds, 1, 0);
-        if (numfds < 0)
-        {
-            if (errno == EAGAIN)
-                continue;
-
-            error("poll");
-        }
-        if (numfds == 0) /* timeout */
-            continue;
-
-        LOGD("numfds %d\n", numfds);
-        
-        /* check error */
-        if (pfds[0].revents & (POLLERR | POLLNVAL))
-            error("poll revents");
-
-        errno = 0;
-        connfd = accept(listenfd, (struct sockaddr *)&cliaddr, &cliaddr_len);
-        if (connfd < 0)
-        {
-            if (errno != EWOULDBLOCK)
-                continue;
-
-            error("accept");
-        }
-
-        setnonblocking(connfd);
-        LOGD("accept fd %d\n", connfd);
-
-        // /* Add connfd to current channel */
-        connfd = add_fd_channel_queue(channel_arr, idx, connfd, conn_loop_num);
-        if (connfd < 0) {
-            LOGD("add to queue\n");
-            connfd = -connfd;
-            curr = (struct fd_entry *)malloc(sizeof(struct fd_entry));
-            curr->fd = connfd;
-            STAILQ_INSERT_TAIL(&fdqueue_head, curr, entries);
-        }
-        else
-            idx++;
-
-        // curr = STAILQ_FIRST(&fdqueue_head);
-        // if (curr == NULL)
-        //     LOGD("the head is NULL\n");
-
-        // LOGD("queue empty %d\n", STAILQ_EMPTY(&fdqueue_head));
-
-        // STAILQ_FOREACH(curr, &fdqueue_head, entries) printf("2 fd %d\n", curr->fd);
-        // sleep(5);
-        // LOGD("end\n");
     }
 
     return 0;
