@@ -7,8 +7,8 @@ PROM = main.out
 
 all: $(PROM)
 
-main.out: generic.h thread-pool.h thread-pool.c http.c main.c 
-	$(CC) $(CFLAGS) -o main.out thread-pool.c http.c main.c $(LIBS)
+main.out: generic.h thread-pool.h thread-pool.c connection.c http.c main.c 
+	$(CC) $(CFLAGS) -o main.out thread-pool.c connection.c http.c main.c $(LIBS)
 
 clear:
 	rm $(PROM)

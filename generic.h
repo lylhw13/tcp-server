@@ -3,6 +3,13 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/epoll.h>
+#include <errno.h>
+#include <pthread.h>
+#include <unistd.h>
+
+#define MAX_EVENTS 64
+#define BUFSIZE 1024
 
 typedef struct connection
 {
@@ -30,5 +37,6 @@ static void error(const char *str)
 extern int create_and_bind(const char* port);
 extern void connect_cb(void *argus);
 
+#define LOGD(...) fprintf(stderr, __VA_ARGS__)
 
 #endif
