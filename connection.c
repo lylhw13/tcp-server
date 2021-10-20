@@ -1,21 +1,35 @@
 #include "generic.h"
 
-int read_cb(int fd)
+/* TCP_NODELAY */
+
+int message_cb(tcp_session_t *session)
+{
+
+}
+
+int read_cb(tcp_session_t *session)
 {
     int nread;
-    char *buf;
-    // printf("hello %d\n", fd);
-    buf = (char *)malloc(BUFSIZE);
+    int fd = session->fd;
+    char *buf = session->buf;
+    struct epoll_event ev;
+
     errno = 0;
     nread = read(fd, buf, BUFSIZE);
-    // if (nread < 0)
-    //     if (errno == EAGAIN || errno == EWOULDBLOCK)
-    //         continue;
-    // if (nread <= 0)
-    //     break;
+    if (nread < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return nread;
+        
+        error("read in read_cb");    
+    }
 
+    if (nread == 0) 
+        return nread;
+    
+    /* process request */
     fprintf(stdout, "thread %ld, read \n", (long)pthread_self());
     write(STDOUT_FILENO, buf, nread);
+    return nread;
 }
 
 /* infinite loop */
@@ -45,8 +59,14 @@ void connect_cb(void *argus)
         }
         for (i = 0; i < nr_events; ++i) {
             if (events[i].events & EPOLLIN) {
-                LOGD("read cb\n");
-                read_cb(events[i].data.fd);   /* read cb */
+                if (read_cb(events[i].data.ptr) == 0) {
+                    struct epoll_event ev;
+                    int fd = ((tcp_session_t *)(events[i].data.ptr))->fd;
+                    ev.data.ptr = events[i].data.ptr;
+                    ev.events = events[i].events & ~EPOLLIN;
+                    if (epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev) < 0)
+                        error("epoll_clt\n");
+                }
             }
             if (events[i].events & EPOLLOUT) {
                 ; /* write cb */
@@ -72,21 +92,21 @@ void connect_cb(void *argus)
             continue;
         }
         conn_ptr = channel_ptr->head;
-        // LOGD("ptr len %d\n", channel_ptr->len);
-
         channel_ptr->head = conn_ptr->next;
         channel_ptr->len --;
 
         LOGD("loop get fd %d\n", conn_ptr->fd);
         pthread_mutex_unlock(&(channel_ptr->lock));
 
+        /* add event */
         struct epoll_event ev;
-        ev.data.fd = conn_ptr->fd;
+        tcp_session_t* ptr = (tcp_session_t*)calloc(1, sizeof(tcp_session_t));
+        ptr->fd = conn_ptr->fd;
+        ptr->epfd = epfd;
+        ev.data.ptr = ptr;
         ev.events = EPOLLIN | EPOLLOUT;
-        if (epoll_ctl(epfd, EPOLL_CTL_ADD, conn_ptr->fd, &ev) != 0)
+        if (epoll_ctl(epfd, EPOLL_CTL_ADD, ptr->fd, &ev) != 0)
             error("add fd to epoll in thread");
-
         free(conn_ptr);
-
     }     /* end while */
 }

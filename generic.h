@@ -39,4 +39,18 @@ extern void connect_cb(void *argus);
 
 #define LOGD(...) fprintf(stderr, __VA_ARGS__)
 
+typedef struct tcp_session {
+    int fd;
+    int epfd;
+    /* for read */
+    char buf[BUFSIZE];
+    char *read_pos;
+    size_t read_size;
+
+    /* for write */
+    char *write_buf;
+    char *wirte_pos;
+    size_t write_size;
+}tcp_session_t;
+
 #endif
