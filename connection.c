@@ -2,7 +2,21 @@
 
 /* TCP_NODELAY */
 
+/*
+ * read
+ * read a complete message
+ * write
+ * write complete 
+ */
+
+/* read a complete message */
 int message_cb(tcp_session_t *session)
+{
+
+}
+
+/* wirte finish */
+int onwirtecomplete_cb()
 {
 
 }

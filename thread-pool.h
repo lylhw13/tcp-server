@@ -31,7 +31,7 @@ typedef struct worker {
 typedef enum {
     fix_num = 0,
     dynamic_num,
-} threadpool_dynamic_t; // ratio
+} threadpool_dynamic_t;
 
 typedef enum {
     no_shutdown = 0,

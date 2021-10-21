@@ -74,6 +74,11 @@ int add_fd_channel_queue(channel_t *channel_arr, int idx, int connfd, int conn_l
     // return 1;
 }
 
+// threadpool_t *create_threadpoll(int conn_loop_num, threadpool_dynamic_t dynamic)
+// {
+
+// }
+
 int main(int argc, char *argv[])
 {
     char *port = "33333";
@@ -83,7 +88,7 @@ int main(int argc, char *argv[])
     struct pollfd pfds[1];
 
     int numfds;
-    int conn_loop_num = 2;
+    int conn_loop_num = 5;
     int i, idx = 0;
     char buf[BUFSIZ];
 
@@ -132,20 +137,25 @@ int main(int argc, char *argv[])
         errno = 0;
         numfds = poll(pfds, 1, 0);
         if (numfds < 0 && errno != EAGAIN) {
-            error("poll");
+            perror("poll");
+            goto out;
         }
 
         // LOGD("numfds %d\n", numfds);
 
         for (i = 0; i< numfds; ++i) {
             /* check error */
-            if (pfds[i].revents & (POLLERR | POLLNVAL))
+            if (pfds[i].revents & (POLLERR | POLLNVAL)) {
                 error("poll revents");
+                goto out;
+            }
 
             errno = 0;
             connfd = accept(listenfd, (struct sockaddr *)&cliaddr, &cliaddr_len);
             if (connfd < 0 && errno != EWOULDBLOCK) {
-                    error("accept");
+                // threadpool_destory(tp, shutdown_waitall);
+                perror("accept");
+                goto out;
             }
 
             if (connfd >=0) {
@@ -192,5 +202,8 @@ int main(int argc, char *argv[])
         }
     }
 
+
+out:
+    threadpool_destory(tp, shutdown_waitall);
     return 0;
 }
