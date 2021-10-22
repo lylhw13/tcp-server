@@ -44,7 +44,7 @@ void connect_cb(void *argus)
     int nread, nwrite;
     connection_t *conn_ptr;
     tcp_session_t *session;
-    parse_message_fun parse_message_cb = NULL;
+    on_read_complete_fun parse_message_cb = NULL;
 
     epfd = epoll_create1(0);
     if (epfd < 0)

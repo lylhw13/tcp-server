@@ -46,17 +46,18 @@ typedef struct tcp_session {
     char read_buf[BUFSIZE];
     char *read_pos;     /* last read end pos */
     char *parse_pos;    /* last parse end pos */
-    int state;
+    int parse_state;
 
     /* for write */
     char *write_buf;
     char *wirte_pos;
+    int write_buf_free_flag;    /* wheter need to free */
     size_t write_size;
     struct server *server;
 }tcp_session_t;
 
-typedef int (*parse_message_fun)(tcp_session_t *seesion);
-typedef int (*on_write_message_fun)(tcp_session_t *seesion);
+typedef int (*on_read_complete_fun)(tcp_session_t *seesion);
+typedef int (*on_write_complete_fun)(tcp_session_t *seesion);
 
 /* return value for on_read_message_fun */
 #define PARSE_ERROR -1
@@ -73,8 +74,8 @@ typedef struct server {
     channel_t *channel_arr;
     int listenfd;
 
-    parse_message_fun read_complete_cb;
-    on_write_message_fun write_complete_cb;
+    on_read_complete_fun read_complete_cb;
+    on_write_complete_fun write_complete_cb;
 } server_t;
 
 extern server_t *server_init(const char*host, const char *port, int conn_loop_num);

@@ -11,7 +11,8 @@
 
 // struct message *gen_message()
 static struct message_queue message_queue_head;
-static int msg_num;
+static int total_msg_num;
+static int *channel_msg_num;
 
 
 int on_read_message_complete(tcp_session_t *session)
@@ -39,10 +40,15 @@ int on_read_message_complete(tcp_session_t *session)
         struct message_entry *msg_entry = (struct message *)malloc(sizeof(struct message_entry));
         msg_entry->ptr = ptr;
         STAILQ_INSERT_TAIL(&message_queue_head, msg_entry, entries);
-        msg_num++;
+        total_msg_num++;
         return MESSAGE_OK;
     }
     return MESSAGE_PARTIAL;
+}
+
+int on_write_message_complete(tcp_session_t *session)
+{
+
 }
 
 
@@ -54,10 +60,11 @@ int main(int argc, char *argv[])
     char *port = "33333";
     int conn_loop_num = 5;
     serv = server_init(host, port, conn_loop_num);
+    serv->read_complete_cb = on_read_message_complete;
+
 
     STAILQ_INIT(&message_queue_head);   /* message queue for group */
 
-    serv->read_complete_cb = on_read_message_complete;
 
     server_start(serv);
     server_run(serv);
