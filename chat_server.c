@@ -5,9 +5,9 @@
 #define MESSAGE_BEGIN 0
 #define MESSAGE_ING 1
 
-#define MESSAGE_ERROR -1
-#define MESSAGE_OK 0
-#define MESSAGE_PARTIAL 1
+#define MESSAGE_ERROR       PARSE_ERROR
+#define MESSAGE_OK          PARSE_OK
+#define MESSAGE_PARTIAL     PARSE_AGAIN
 
 // struct message *gen_message()
 static struct message_queue message_queue_head;
@@ -49,7 +49,17 @@ int on_read_message_complete(tcp_session_t *session)
 
 int main(int argc, char *argv[])
 {
-    STAILQ_INIT(&message_queue_head);
+    server_t *serv;
+    char *host = "127.0.0.1";
+    char *port = "33333";
+    int conn_loop_num = 5;
+    serv = server_init(host, port, conn_loop_num);
 
+    STAILQ_INIT(&message_queue_head);   /* message queue for group */
+
+    serv->read_complete_cb = on_read_message_complete;
+
+    server_start(serv);
+    server_run(serv);
     return 0;
 }

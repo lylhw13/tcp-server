@@ -1,7 +1,5 @@
 #include "generic.h"
 
-/* TCP_NODELAY */
-
 /*
  * read
  * read a complete message
@@ -41,10 +39,12 @@ void connect_cb(void *argus)
     channel_t *channel_ptr = (channel_t *)argus;
     LOGD("thread %ld loop address %p\n", (long)pthread_self(), channel_ptr);
     int i, n;
-    int epfd;
+    int epfd, fd;
     int nr_events;
     int nread, nwrite;
     connection_t *conn_ptr;
+    tcp_session_t *session;
+    parse_message_fun parse_message_cb = NULL;
 
     epfd = epoll_create1(0);
     if (epfd < 0)
@@ -61,18 +61,33 @@ void connect_cb(void *argus)
             error("epoll_wait");
         }
         for (i = 0; i < nr_events; ++i) {
+            session = (tcp_session_t*)events[i].data.ptr;
+            epfd = session->epfd;
+            fd = session->fd;
             if (events[i].events & EPOLLIN) {
                 if ((nread = read_cb(events[i].data.ptr)) == 0) {
                     struct epoll_event ev;
-                    int fd = ((tcp_session_t *)(events[i].data.ptr))->fd;
                     ev.data.ptr = events[i].data.ptr;
                     ev.events = events[i].events & ~EPOLLIN;
                     if (epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev) < 0)
                         error("epoll_clt\n");
                 }
-                // if (server->read_complete_cb != NULL) {
-
-                // }
+                parse_message_cb = session->server->read_complete_cb;
+                if (parse_message_cb != NULL) {
+                    int res;
+                    res = parse_message_cb(session);
+                    if(res == PARSE_OK) {
+                        LOGD("shift buf\n");
+                        ;   /* TODO */
+                    }
+                    else if (res == PARSE_ERROR) {
+                        epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
+                    }
+                    else if (res == PARSE_AGAIN) {
+                        /* check buffer full */
+                        ;
+                    }
+                }
             }
             if (events[i].events & EPOLLOUT) {
                 ; /* write cb */

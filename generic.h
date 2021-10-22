@@ -28,7 +28,6 @@ typedef struct channel
     connection_t *tail;
 } channel_t;
 
-
 static void error(const char *str)
 {
     perror(str);
@@ -53,10 +52,10 @@ typedef struct tcp_session {
     char *write_buf;
     char *wirte_pos;
     size_t write_size;
-    // server_t *server;
+    struct server *server;
 }tcp_session_t;
 
-typedef int (*on_read_message_fun)(tcp_session_t *seesion);
+typedef int (*parse_message_fun)(tcp_session_t *seesion);
 typedef int (*on_write_message_fun)(tcp_session_t *seesion);
 
 /* return value for on_read_message_fun */
@@ -74,7 +73,7 @@ typedef struct server {
     channel_t *channel_arr;
     int listenfd;
 
-    on_read_message_fun read_complete_cb;
+    parse_message_fun read_complete_cb;
     on_write_message_fun write_complete_cb;
 } server_t;
 
