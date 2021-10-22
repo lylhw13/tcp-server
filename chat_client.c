@@ -1,6 +1,7 @@
 #include "chat.h"
 #include <netdb.h>
 #include <string.h>
+#include <stddef.h>
 // #include <sys/socket.h>
 
 void usage(void)
@@ -38,34 +39,48 @@ int build_client(char *host, char *port)
     return sockfd;
 }
 
+void rio_write(int fd, char *buf, size_t len)
+{
+    int nwrite = 0;
+    int n;
+    while (len > 0) {
+        n = write(fd, buf + nwrite, len);
+        if (n < 0)
+            error("write");
+        nwrite += n;
+        len -= n;
+    }
+    return;
+}
+
 int main(int argc, char *argv[])
 {
-    char *host;
-    char *port;
+    char *host, *port;
     int sockfd;
     int nread;
     char buf[BUFSIZE];
-    // char msg_buf[BUFSIZE + sizeof(struct message)];
-    // char msg_header[sizeof()]
     struct message msg;
+    int body_pos;
+
 
     if (argc < 3) {
         usage();
         exit(EXIT_FAILURE);
     }
-    char *host = argv[1];
-    char *port = argv[2];
+    host = argv[1];
+    port = argv[2];
 
     memset(&msg, 0, sizeof(msg));
+    body_pos = offsetof(struct message, body);
     msg.signature = MESSAGE_SIGNATURE;
     msg.version = 1.0;
 
     sockfd = build_client(host, port);
-    while((nread = read(STDIN_FILENO, buf, BUFSIZE)) > 0) {
+    
+    while((nread = read(STDIN_FILENO, buf + body_pos, BUFSIZE - body_pos)) > 0) {
         msg.length = nread;
-        msg.body = buf;
-        /* rio_write */
-
+        memcpy(buf, &msg, body_pos);
+        rio_write(sockfd, buf, nread + body_pos);
     }
     return 0;
 }

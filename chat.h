@@ -9,10 +9,8 @@
 struct message{
     unsigned int signature;
     unsigned int version;
-    // STAILQ_ENTRY(message) entries;
     unsigned int length;
-    // unsigned char body[0];
-    unsigned char *body;
+    unsigned char body[0];
 };
 struct message_entry{
     struct message *ptr;
