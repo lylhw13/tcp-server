@@ -68,11 +68,11 @@ typedef int (*on_write_complete_fun)(tcp_session_t *seesion);
 #define LOOP_STOP 0
 
 typedef struct server {
-    threadpool_t *tp;
+    int listenfd;
     int loop_state;
     int conn_loop_num;
+    threadpool_t *tp;
     channel_t *channel_arr;
-    int listenfd;
 
     on_read_complete_fun read_complete_cb;
     on_write_complete_fun write_complete_cb;
