@@ -9,18 +9,6 @@
  * write complete 
  */
 
-/* read a complete message */
-int message_cb(tcp_session_t *session)
-{
-
-}
-
-/* wirte finish */
-int onwirtecomplete_cb()
-{
-
-}
-
 int read_cb(tcp_session_t *session)
 {
     int nread;
@@ -82,7 +70,9 @@ void connect_cb(void *argus)
                     if (epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev) < 0)
                         error("epoll_clt\n");
                 }
-                if ()
+                // if (server->read_complete_cb != NULL) {
+
+                // }
             }
             if (events[i].events & EPOLLOUT) {
                 ; /* write cb */

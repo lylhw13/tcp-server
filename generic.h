@@ -46,7 +46,6 @@ typedef struct tcp_session {
     /* for read */
     char read_buf[BUFSIZE];
     char *read_pos;     /* last read end pos */
-    // size_t read_size;
     char *parse_pos;    /* last parse end pos */
     int state;
 
@@ -54,13 +53,29 @@ typedef struct tcp_session {
     char *write_buf;
     char *wirte_pos;
     size_t write_size;
+    server_t *server;
 }tcp_session_t;
 
-typedef int (*on_read_message_complete)(tcp_session_t *seesion);
+typedef int (*on_read_message_fun)(tcp_session_t *seesion);
+typedef int (*on_write_message_fun)(tcp_session_t *seesion);
+
+/* return value for on_read_message_fun */
+#define PARSE_ERROR -1
+#define PARSE_OK 0
+#define PARSE_AGAIN 1
+
 typedef struct server {
     threadpool_t *tp;
-    on_read_message_complete read_complete_ptr;
+    int loop_state;
 
+    on_read_message_fun read_complete_cb;
+    on_write_message_fun write_complete_cb;
 } server_t;
+
+extern server_t *server_init(const char*host, const char *port);
+extern void server_start(server_t *);
+extern void server_run(server_t *);
+extern void server_stop(server_t *);
+extern void server_destory(server_t *);
 
 #endif

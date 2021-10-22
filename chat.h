@@ -1,7 +1,7 @@
 #ifndef CHAT_H
 #define CHAT_H
 
-#include "generic.h"
+// #include "generic.h"
 #include <sys/queue.h>
 #include <stddef.h>
 
