@@ -1,6 +1,7 @@
 #ifndef GENERIC_H
 #define GENERIC_H
 
+#include "thread-pool.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/epoll.h>
@@ -43,14 +44,23 @@ typedef struct tcp_session {
     int fd;
     int epfd;
     /* for read */
-    char buf[BUFSIZE];
-    char *read_pos;
-    size_t read_size;
+    char read_buf[BUFSIZE];
+    char *read_pos;     /* last read end pos */
+    // size_t read_size;
+    char *parse_pos;    /* last parse end pos */
+    int state;
 
     /* for write */
     char *write_buf;
     char *wirte_pos;
     size_t write_size;
 }tcp_session_t;
+
+typedef int (*on_read_message_complete)(tcp_session_t *seesion);
+typedef struct server {
+    threadpool_t *tp;
+    on_read_message_complete read_complete_ptr;
+
+} server_t;
 
 #endif

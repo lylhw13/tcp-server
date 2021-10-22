@@ -1,7 +1,7 @@
 #include "chat.h"
 #include <netdb.h>
 #include <string.h>
-#include <stddef.h>
+// #include <stddef.h>
 // #include <sys/socket.h>
 
 void usage(void)
@@ -41,8 +41,7 @@ int build_client(char *host, char *port)
 
 void rio_write(int fd, char *buf, size_t len)
 {
-    int nwrite = 0;
-    int n;
+    int n, nwrite = 0;
     while (len > 0) {
         n = write(fd, buf + nwrite, len);
         if (n < 0)
@@ -50,7 +49,6 @@ void rio_write(int fd, char *buf, size_t len)
         nwrite += n;
         len -= n;
     }
-    return;
 }
 
 int main(int argc, char *argv[])

@@ -25,7 +25,7 @@ int read_cb(tcp_session_t *session)
 {
     int nread;
     int fd = session->fd;
-    char *buf = session->buf;
+    char *buf = session->read_buf;
     struct epoll_event ev;
 
     errno = 0;
@@ -55,6 +55,7 @@ void connect_cb(void *argus)
     int i, n;
     int epfd;
     int nr_events;
+    int nread, nwrite;
     connection_t *conn_ptr;
 
     epfd = epoll_create1(0);
@@ -73,7 +74,7 @@ void connect_cb(void *argus)
         }
         for (i = 0; i < nr_events; ++i) {
             if (events[i].events & EPOLLIN) {
-                if (read_cb(events[i].data.ptr) == 0) {
+                if ((nread = read_cb(events[i].data.ptr)) == 0) {
                     struct epoll_event ev;
                     int fd = ((tcp_session_t *)(events[i].data.ptr))->fd;
                     ev.data.ptr = events[i].data.ptr;
@@ -81,6 +82,7 @@ void connect_cb(void *argus)
                     if (epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev) < 0)
                         error("epoll_clt\n");
                 }
+                if ()
             }
             if (events[i].events & EPOLLOUT) {
                 ; /* write cb */
