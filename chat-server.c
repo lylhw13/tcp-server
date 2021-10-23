@@ -38,42 +38,45 @@ int on_read_message_complete(tcp_session_t *session)
         }
 
         length = msg_size_by_len(msg_begin->length);
-        if (length <= (session->read_pos - session->parse_pos)) {
-            struct message *ptr = (struct message *)malloc(length);
-            memcpy(ptr, session->parse_pos, length);
-            session->parse_pos += length;
+        LOGD("message size %d, read size %d\n", length, (int)(session->read_pos - session->parse_pos));
+        if (length > (session->read_pos - session->parse_pos))
+            break;
+        struct message *ptr = (struct message *)malloc(length);
+        memcpy(ptr, session->parse_pos, length);
+        session->parse_pos += length;
 
-            struct message_entry *msg_entry = (struct message_entry *)malloc(sizeof(struct message_entry));
-            msg_entry->ptr = ptr;
-            
-            err = pthread_mutex_trylock(msg_info->lock);
-            if (err == EBUSY)
-                return MESSAGE_LOCK_AGAIN;
-            if (err != 0)
-                return MESSAGE_ERROR;
-            STAILQ_INSERT_TAIL(msg_info->message_queue_head, msg_entry, entries);
-            (*(msg_info->msg_total_num))++;
-            pthread_mutex_unlock(msg_info->lock);
+        struct message_entry *msg_entry = (struct message_entry *)malloc(sizeof(struct message_entry));
+        msg_entry->ptr = ptr;
+        
+        err = pthread_mutex_trylock(msg_info->lock);
+        if (err == EBUSY)
+            return MESSAGE_LOCK_AGAIN;
+        if (err != 0)
+            return MESSAGE_ERROR;
+        STAILQ_INSERT_TAIL(msg_info->message_queue_head, msg_entry, entries);
+        (*(msg_info->msg_total_num))++;
+        pthread_mutex_unlock(msg_info->lock);
 
-            /* shift buffer */
-            memmove(session->read_buf, session->parse_pos, session->read_pos - session->parse_pos);
-            return MESSAGE_OK;
-        }
+        /* shift buffer */
+        memmove(session->read_buf, session->parse_pos, session->read_pos - session->parse_pos);
+        return MESSAGE_OK;
     }
+
+    LOGD("end %s\n", __FUNCTION__);
 
     return MESSAGE_PARTIAL;
 }
 
 int on_write_message_complete(tcp_session_t *session)
 {
-    LOGD("%s\n", __FUNCTION__);
+    // LOGD("%s\n", __FUNCTION__);
     int err;
     struct message *msg;
     struct message_entry *msg_entry;
     struct chat_messages *msg_info;
 
     /* last write has not complete */
-    if (session->write_pos < session->write_buf + session->write_size)
+    if (session->write_size == 0 || session->write_pos <= session->write_buf + session->write_size)
         return WCB_AGAIN;
 
     /* reset the write buffer */
@@ -82,7 +85,7 @@ int on_write_message_complete(tcp_session_t *session)
 
 
     msg_info = (chat_messages_t*)session->additional_info;
-    err = pthread_mutex_lock(msg_info->lock);
+    err = pthread_mutex_trylock(msg_info->lock);
     if (err == EBUSY)
         return WCB_AGAIN;
     if (err != 0)
@@ -117,6 +120,9 @@ int on_write_message_complete(tcp_session_t *session)
     session->write_pos = session->write_buf;
     session->write_size = msg_size(msg_entry->ptr);
     pthread_mutex_unlock(msg_info->lock);
+
+    // LOGD("end %s\n", __FUNCTION__);
+
     return WCB_OK;
 }
 

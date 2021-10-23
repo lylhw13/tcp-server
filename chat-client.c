@@ -81,7 +81,9 @@ int main(int argc, char *argv[])
     while((nread = read(STDIN_FILENO, buf + body_pos, BUFSIZE - body_pos)) > 0) {
         msg.length = nread;
         memcpy(buf, &msg, body_pos);
-        rio_write(sockfd, buf, nread + body_pos);
+        rio_write(sockfd, buf, msg_size(&msg));
+        printf("nread %d, body pos %d, length %d\n", nread, body_pos,(int)msg_size(&msg));
+
     }
     return 0;
 }

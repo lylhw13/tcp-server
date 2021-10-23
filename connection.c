@@ -52,7 +52,8 @@ int read_cb(tcp_session_t *session)
 
     if (nread == 0) 
         return nread;
-    
+
+    session->read_pos += nread;
     /* process request */
     // fprintf(stdout, "thread %ld, read \n", (long)pthread_self());
     write(STDOUT_FILENO, buf, nread);
