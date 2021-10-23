@@ -12,6 +12,12 @@
 
 // struct message *gen_message()
 
+char *gen()
+{
+    char *tmp = malloc(200);
+    return tmp;
+}
+
 
 int on_read_message_complete(tcp_session_t *session)
 {
@@ -20,47 +26,64 @@ int on_read_message_complete(tcp_session_t *session)
     struct message *msg_begin;
     chat_messages_t *msg_info;
 
-    msg_begin = (struct message *)session->read_buf;
-    msg_info = (chat_messages_t*)session->additional_info;
+    // char *tmp = malloc(200);
+    // char *tmp = gen();
+    // if (tmp == NULL)
+    //     error("tmp\n");
+    // LOGD("after tmp\n");
 
-    while (1) {
-        if ((session->read_pos - session->parse_pos) < offsetof(struct message, body))
-            return MESSAGE_PARTIAL;
+    // msg_begin = (struct message *)session->read_buf;
+    // msg_info = (chat_messages_t*)session->additional_info;
 
-        if (msg_begin->signature != MESSAGE_SIGNATURE) {
-            fprintf(stderr, "error message signature\n");
-            return MESSAGE_ERROR;
-        }
+    // while (1) {
+    //     if ((session->read_pos - session->parse_pos) < offsetof(struct message, body))
+    //         return MESSAGE_PARTIAL;
 
-        if (msg_begin->version != MESSAGE_VERSION) {
-            fprintf(stderr, "error message version\n");
-            return MESSAGE_ERROR;
-        }
+    //     if (msg_begin->signature != MESSAGE_SIGNATURE) {
+    //         fprintf(stderr, "error message signature\n");
+    //         return MESSAGE_ERROR;
+    //     }
 
-        length = msg_size_by_len(msg_begin->length);
-        LOGD("message size %d, read size %d\n", length, (int)(session->read_pos - session->parse_pos));
-        if (length > (session->read_pos - session->parse_pos))
-            break;
-        struct message *ptr = (struct message *)malloc(length);
-        memcpy(ptr, session->parse_pos, length);
-        session->parse_pos += length;
+    //     if (msg_begin->version != MESSAGE_VERSION) {
+    //         fprintf(stderr, "error message version\n");
+    //         return MESSAGE_ERROR;
+    //     }
 
-        struct message_entry *msg_entry = (struct message_entry *)malloc(sizeof(struct message_entry));
-        msg_entry->ptr = ptr;
+    //     length = msg_size_by_len(msg_begin->length);
+    //     LOGD("message size %d, read size %d\n", length, (int)(session->read_pos - session->parse_pos));
+    //     if (length > (session->read_pos - session->parse_pos))
+    //         break;
+    //     struct message *ptr = (struct message *)malloc(length + 16);
+    //     if (ptr == NULL)
+    //         error("malloc message\n");
+    //     memmove(ptr, session->parse_pos, length);
+    //     // printf("%.*s\n", length, (char*)ptr);
+    //     // printf("%.*s\n", length, session->parse_pos);
+    //     // struct message *ptr;
+
+
+    //     session->parse_pos += length;
+
+    //     LOGD("befor mssage_entry\n");
+    //     struct message_entry *msg_entry = (struct message_entry *)malloc(sizeof(struct message_entry));
+    //     if (msg_entry == NULL)
+    //         error("malloc message_entry\n");
+    //     msg_entry->ptr = ptr;
         
-        err = pthread_mutex_trylock(msg_info->lock);
-        if (err == EBUSY)
-            return MESSAGE_LOCK_AGAIN;
-        if (err != 0)
-            return MESSAGE_ERROR;
-        STAILQ_INSERT_TAIL(msg_info->message_queue_head, msg_entry, entries);
-        (*(msg_info->msg_total_num))++;
-        pthread_mutex_unlock(msg_info->lock);
+    //     LOGD("before lock\n");
+    //     err = pthread_mutex_trylock(msg_info->lock);
+    //     if (err == EBUSY)
+    //         return MESSAGE_LOCK_AGAIN;
+    //     if (err != 0)
+    //         return MESSAGE_ERROR;
+    //     STAILQ_INSERT_TAIL(msg_info->message_queue_head, msg_entry, entries);
+    //     (*(msg_info->msg_total_num))++;
+    //     pthread_mutex_unlock(msg_info->lock);
 
-        /* shift buffer */
-        memmove(session->read_buf, session->parse_pos, session->read_pos - session->parse_pos);
-        return MESSAGE_OK;
-    }
+    //     /* shift buffer */
+    //     memmove(session->read_buf, session->parse_pos, session->read_pos - session->parse_pos);
+    //     return MESSAGE_OK;
+    // }
 
     LOGD("end %s\n", __FUNCTION__);
 
@@ -137,6 +160,7 @@ int main(int argc, char *argv[])
     chat_messages_t chat_msgs;
 
     pthread_mutex_t lock;
+    pthread_mutex_init(&lock, NULL);
     struct message_queue message_queue_head;
     int msg_total_num;
 
