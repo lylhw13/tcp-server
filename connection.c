@@ -43,12 +43,6 @@ int read_cb(tcp_session_t *session)
     char *buf = session->read_buf;
     struct epoll_event ev;
 
-    LOGD("befor tmp %s\n", __FUNCTION__);
-    char *tmp = malloc(200);
-    if (tmp == NULL)
-        error("tmp\n");
-    LOGD("after tmp\n");
-
     errno = 0;
     nread = read(fd, session->read_pos, session->read_buf + BUFSIZE - session->read_pos);
     if (nread < 0) {
@@ -65,7 +59,7 @@ int read_cb(tcp_session_t *session)
     /* process request */
     // fprintf(stdout, "thread %ld, read \n", (long)pthread_self());
     write(STDOUT_FILENO, buf, nread);
-    LOGD("end %s\n",  __FUNCTION__);
+    LOGD("\nend %s\n",  __FUNCTION__);
     return nread;
 }
 void write_cb(tcp_session_t* session)
@@ -79,6 +73,8 @@ void write_cb(tcp_session_t* session)
         return ;
 
     length = session->write_buf + session->write_size - session->write_pos;
+    if (length == 0)
+        return;
     
     errno = 0;
     nwrite = write(fd, session->write_pos, length);
@@ -88,6 +84,8 @@ void write_cb(tcp_session_t* session)
 
         error("write in write_cb\n");
     }
+
+    printf("write %.*s\n", nwrite,session->write_pos);
     session->write_pos += nwrite;
     // LOGD("end %s\n", __FUNCTION__);
     return ;
@@ -141,9 +139,7 @@ void connect_cb(void *argus)
                 /* read_message_cb */
                 parse_message_cb = serv->read_complete_cb;
                 if (parse_message_cb != NULL) {
-                    
                     res = parse_message_cb(session);
-                    // res = on_read_message_complete1(session);
                     switch(res) {
                         case RCB_AGAIN:
                             if (session->read_pos < session->read_buf + BUFSIZE) 
@@ -162,14 +158,14 @@ void connect_cb(void *argus)
             if (events[i].events & EPOLLOUT) {
                 /* normal write */
                 write_cb(session);
-                // write_message_cb = serv->write_complete_cb;
-                // if (write_message_cb != NULL) {
-                //     res = write_message_cb(session);
-                //     if (res == WCB_ERROR) {
-                //         epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
-                //         free_session(session);
-                //     }
-                // }
+                write_message_cb = serv->write_complete_cb;
+                if (write_message_cb != NULL) {
+                    res = write_message_cb(session);
+                    if (res == WCB_ERROR) {
+                        epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
+                        free_session(session);
+                    }
+                }
             }
         } /* end for */
 

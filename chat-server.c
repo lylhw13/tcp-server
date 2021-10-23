@@ -12,12 +12,17 @@
 
 // struct message *gen_message()
 
-char *gen()
+void print_msg(struct message_queue*head)
 {
-    char *tmp = malloc(200);
-    return tmp;
+    LOGD("%s\n", __FUNCTION__);
+    struct message_entry *msg_entry = STAILQ_FIRST(head);
+    while(msg_entry != NULL) {
+        printf("%.*s\n",msg_entry->ptr->length, msg_entry->ptr->body);
+        msg_entry = STAILQ_NEXT(msg_entry, entries);
+    }
+    LOGD("end %s\n", __FUNCTION__);
+    return;
 }
-
 
 int on_read_message_complete(tcp_session_t *session)
 {
@@ -26,64 +31,58 @@ int on_read_message_complete(tcp_session_t *session)
     struct message *msg_begin;
     chat_messages_t *msg_info;
 
-    // char *tmp = malloc(200);
-    // char *tmp = gen();
-    // if (tmp == NULL)
-    //     error("tmp\n");
-    // LOGD("after tmp\n");
+    msg_begin = (struct message *)session->read_buf;
+    msg_info = (chat_messages_t*)session->additional_info;
 
-    // msg_begin = (struct message *)session->read_buf;
-    // msg_info = (chat_messages_t*)session->additional_info;
+    while (1) {
+        if ((session->read_pos - session->parse_pos) < offsetof(struct message, body))
+            return MESSAGE_PARTIAL;
 
-    // while (1) {
-    //     if ((session->read_pos - session->parse_pos) < offsetof(struct message, body))
-    //         return MESSAGE_PARTIAL;
+        if (msg_begin->signature != MESSAGE_SIGNATURE) {
+            fprintf(stderr, "error message signature\n");
+            return MESSAGE_ERROR;
+        }
 
-    //     if (msg_begin->signature != MESSAGE_SIGNATURE) {
-    //         fprintf(stderr, "error message signature\n");
-    //         return MESSAGE_ERROR;
-    //     }
+        if (msg_begin->version != MESSAGE_VERSION) {
+            fprintf(stderr, "error message version\n");
+            return MESSAGE_ERROR;
+        }
 
-    //     if (msg_begin->version != MESSAGE_VERSION) {
-    //         fprintf(stderr, "error message version\n");
-    //         return MESSAGE_ERROR;
-    //     }
+        length = msg_size_by_len(msg_begin->length);
+        LOGD("message size %d, read size %d\n", length, (int)(session->read_pos - session->parse_pos));
+        if (length > (session->read_pos - session->parse_pos))
+            break;
+        struct message *ptr = (struct message *)malloc(length + 16);
+        if (ptr == NULL)
+            error("malloc message\n");
+        memcpy(ptr, session->parse_pos, length);
 
-    //     length = msg_size_by_len(msg_begin->length);
-    //     LOGD("message size %d, read size %d\n", length, (int)(session->read_pos - session->parse_pos));
-    //     if (length > (session->read_pos - session->parse_pos))
-    //         break;
-    //     struct message *ptr = (struct message *)malloc(length + 16);
-    //     if (ptr == NULL)
-    //         error("malloc message\n");
-    //     memmove(ptr, session->parse_pos, length);
-    //     // printf("%.*s\n", length, (char*)ptr);
-    //     // printf("%.*s\n", length, session->parse_pos);
-    //     // struct message *ptr;
+        session->parse_pos += length;
 
-
-    //     session->parse_pos += length;
-
-    //     LOGD("befor mssage_entry\n");
-    //     struct message_entry *msg_entry = (struct message_entry *)malloc(sizeof(struct message_entry));
-    //     if (msg_entry == NULL)
-    //         error("malloc message_entry\n");
-    //     msg_entry->ptr = ptr;
+        LOGD("befor mssage_entry\n");
+        struct message_entry *msg_entry = (struct message_entry *)malloc(sizeof(struct message_entry));
+        if (msg_entry == NULL)
+            error("malloc message_entry\n");
+        msg_entry->ptr = ptr;
         
-    //     LOGD("before lock\n");
-    //     err = pthread_mutex_trylock(msg_info->lock);
-    //     if (err == EBUSY)
-    //         return MESSAGE_LOCK_AGAIN;
-    //     if (err != 0)
-    //         return MESSAGE_ERROR;
-    //     STAILQ_INSERT_TAIL(msg_info->message_queue_head, msg_entry, entries);
-    //     (*(msg_info->msg_total_num))++;
-    //     pthread_mutex_unlock(msg_info->lock);
+        LOGD("before lock\n");
+        err = pthread_mutex_trylock(msg_info->lock);
+        if (err == EBUSY)
+            return MESSAGE_LOCK_AGAIN;
+        if (err != 0)
+            return MESSAGE_ERROR;
+        STAILQ_INSERT_TAIL(msg_info->message_queue_head, msg_entry, entries);
+        printf("before msg num is %d\n", *(msg_info->msg_total_num));
+        (*(msg_info->msg_total_num))++;
+        printf("after msg num is %d\n", *(msg_info->msg_total_num));
+        pthread_mutex_unlock(msg_info->lock);
 
-    //     /* shift buffer */
-    //     memmove(session->read_buf, session->parse_pos, session->read_pos - session->parse_pos);
-    //     return MESSAGE_OK;
-    // }
+        // printf("msg num is %d\n", *(msg_info->msg_total_num));
+        print_msg(msg_info->message_queue_head);
+        /* shift buffer */
+        memmove(session->read_buf, session->parse_pos, session->read_pos - session->parse_pos);
+        return MESSAGE_OK;
+    }
 
     LOGD("end %s\n", __FUNCTION__);
 
@@ -99,9 +98,10 @@ int on_write_message_complete(tcp_session_t *session)
     struct chat_messages *msg_info;
 
     /* last write has not complete */
-    if (session->write_size == 0 || session->write_pos <= session->write_buf + session->write_size)
+    if (session->write_pos <= session->write_buf + session->write_size && session->write_size != 0)
         return WCB_AGAIN;
 
+    // LOGD("begin to write\n");
     /* reset the write buffer */
     session->write_size = 0;
     session->write_pos = session->write_buf;
@@ -142,6 +142,7 @@ int on_write_message_complete(tcp_session_t *session)
     session->write_buf = (char *)msg_entry->ptr;
     session->write_pos = session->write_buf;
     session->write_size = msg_size(msg_entry->ptr);
+    printf("read to write %.*s\n",(int)session->write_size, session->write_pos);
     pthread_mutex_unlock(msg_info->lock);
 
     // LOGD("end %s\n", __FUNCTION__);
@@ -160,13 +161,15 @@ int main(int argc, char *argv[])
     chat_messages_t chat_msgs;
 
     pthread_mutex_t lock;
-    pthread_mutex_init(&lock, NULL);
-    struct message_queue message_queue_head;
     int msg_total_num;
+    struct message_queue message_queue_head;
+
+    pthread_mutex_init(&lock, NULL);
+    msg_total_num = 0;
+    STAILQ_INIT(&message_queue_head);   /* message queue for group */
 
 
     serv = server_init(host, port, conn_loop_num);
-    STAILQ_INIT(&message_queue_head);   /* message queue for group */
 
     serv->read_complete_cb = on_read_message_complete;
     serv->write_complete_cb = on_write_message_complete;
