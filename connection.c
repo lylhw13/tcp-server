@@ -1,4 +1,5 @@
 #include "generic.h"
+#include <string.h>
 
 /*
  * read
@@ -44,6 +45,7 @@ void connect_cb(void *argus)
     int nread, nwrite;
     connection_t *conn_ptr;
     tcp_session_t *session;
+    server_t *curr_serv;
     on_read_complete_fun parse_message_cb = NULL;
 
     epfd = epoll_create1(0);
@@ -122,6 +124,13 @@ void connect_cb(void *argus)
         /* add event */
         struct epoll_event ev;
         tcp_session_t* ptr = (tcp_session_t*)calloc(1, sizeof(tcp_session_t));
+
+        if (curr_serv->add_info_size != 0) {
+            ptr->add_info_size = curr_serv->add_info_size;
+            ptr->additional_info = malloc(sizeof(ptr->add_info_size));
+            memcpy(ptr->additional_info, curr_serv->additional_info, curr_serv->add_info_size);
+        }
+
         ptr->fd = conn_ptr->fd;
         ptr->epfd = epfd;
         ev.data.ptr = ptr;

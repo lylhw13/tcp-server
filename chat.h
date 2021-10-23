@@ -21,6 +21,13 @@ struct message_entry{
 
 STAILQ_HEAD(message_queue, message);
 
+typedef struct chat_messages {
+    pthread_mutex_t *lock;
+    struct message_queue *message_queue_head;
+    int msg_offset;
+    int *msg_total_num;
+}chat_messages_t;
+
 #define msg_entry_size(len) ((offsetof(struct message, body) + len + 8) & ~7)
 
 #endif

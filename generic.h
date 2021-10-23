@@ -22,6 +22,7 @@ typedef struct channel
 {
     pthread_mutex_t lock;
     // pthread_cond_t notify;
+    struct server *serv;
 
     int len;
     connection_t *head;
@@ -48,12 +49,17 @@ typedef struct tcp_session {
     char *parse_pos;    /* last parse end pos */
     int parse_state;
 
+    int message_offset;
+
     /* for write */
     char *write_buf;
     char *wirte_pos;
     int write_buf_free_flag;    /* wheter need to free */
     size_t write_size;
     struct server *server;
+
+    void *additional_info;
+    int add_info_size;
 }tcp_session_t;
 
 typedef int (*on_read_complete_fun)(tcp_session_t *seesion);
@@ -62,7 +68,8 @@ typedef int (*on_write_complete_fun)(tcp_session_t *seesion);
 /* return value for on_read_message_fun */
 #define PARSE_ERROR -1
 #define PARSE_OK 0
-#define PARSE_AGAIN 1
+#define PARSE_MORE 1
+#define PARSE_AGAIN 2
 
 #define LOOP_RUN 1
 #define LOOP_STOP 0
@@ -76,6 +83,9 @@ typedef struct server {
 
     on_read_complete_fun read_complete_cb;
     on_write_complete_fun write_complete_cb;
+
+    void *additional_info;
+    int add_info_size;
 } server_t;
 
 extern server_t *server_init(const char*host, const char *port, int conn_loop_num);
