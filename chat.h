@@ -1,12 +1,14 @@
 #ifndef CHAT_H
 #define CHAT_H
 
-// #include "generic.h"
+#include "generic.h"
 #include <sys/queue.h>
 #include <stddef.h>
+#include <pthread.h>
 
 #define MESSAGE_SIGNATURE 0x4D534753 /* "MSGS" */
 #define MESSAGE_VERSION 1.0
+// #define BUFSIZE 1024
 
 struct message{
     unsigned int signature;
