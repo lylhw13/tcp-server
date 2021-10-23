@@ -76,8 +76,8 @@ server_t *server_init(const char* host, const char* port, int conn_loop_num)
     serv = (server_t*)malloc(sizeof(server_t));
     memset(serv, 0, sizeof(serv));
     serv->conn_loop_num = conn_loop_num;
-    serv->read_complete_cb = NULL;
-    serv->write_complete_cb = NULL;
+    // serv->read_complete_cb = NULL;
+    // serv->write_complete_cb = NULL;
 
     /* prepare listen socket */
     listenfd = create_and_bind(port);

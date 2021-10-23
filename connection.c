@@ -25,9 +25,17 @@ tcp_session_t * create_session(int fd, int epfd, server_t *serv)
     return session;
 }
 
-int read_cb(tcp_session_t *session)
+void free_session(tcp_session_t *session)
 {
     LOGD("%s\n", __FUNCTION__);
+    if (session->additional_info)
+        free(session->additional_info);
+    free(session);
+}
+
+int read_cb(tcp_session_t *session)
+{
+    // LOGD("%s\n", __FUNCTION__);
     int nread;
     int fd = session->fd;
     char *buf = session->read_buf;
@@ -50,7 +58,7 @@ int read_cb(tcp_session_t *session)
     write(STDOUT_FILENO, buf, nread);
     return nread;
 }
-int write_cb(tcp_session_t* session)
+void write_cb(tcp_session_t* session)
 {
     // LOGD("%s\n", __FUNCTION__);
     int nwrite;
@@ -58,7 +66,7 @@ int write_cb(tcp_session_t* session)
     int fd = session->fd;
 
     if (session->write_buf == NULL || session->write_pos == NULL)
-        return 0;
+        return ;
 
     length = session->write_buf + session->write_size - session->write_pos;
     
@@ -66,31 +74,31 @@ int write_cb(tcp_session_t* session)
     nwrite = write(fd, session->write_pos, length);
     if (nwrite < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
-            return 0;
+            return;
 
         error("write in write_cb\n");
     }
     session->write_pos += nwrite;
     // LOGD("end %s\n", __FUNCTION__);
-    return nwrite;
+    return ;
 }
 
 /* infinite loop */
 void connect_cb(void *argus)
 {
-    LOGD("connect loop in thread %ld\n", (long)pthread_self());
     channel_t *channel_ptr = (channel_t *)argus;
     LOGD("thread %ld loop address %p\n", (long)pthread_self(), channel_ptr);
-    int i, n, res;
+    int i, n, res, nread;
     int epfd, fd;
     int nr_events;
-    int nread, nwrite;
     connection_t *conn_ptr;
     tcp_session_t *session;
-    server_t *serv = channel_ptr->serv;
-    on_read_complete_fun parse_message_cb = NULL;
-    on_write_complete_fun write_message_cb = NULL;
+    server_t *serv;
+    on_read_complete_fun parse_message_cb;
+    on_write_complete_fun write_message_cb;
+    struct epoll_event ev;
 
+    serv = channel_ptr->serv;
     epfd = epoll_create1(0);
     if (epfd < 0)
         error("epoll_create1");
@@ -107,17 +115,12 @@ void connect_cb(void *argus)
         }
         for (i = 0; i < nr_events; ++i) {
             session = (tcp_session_t*)events[i].data.ptr;
-            epfd = session->epfd;
             fd = session->fd;
-            // serv = session->server;
             if (events[i].events & EPOLLIN) {
                 /* normal read */
                 if ((nread = read_cb(events[i].data.ptr)) == 0) {
-                    struct epoll_event ev;
-                    ev.data.ptr = events[i].data.ptr;
-                    ev.events = events[i].events & ~EPOLLIN;
-                    if (epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev) < 0)
-                        error("epoll_clt\n");
+                    epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
+                    free_session(session);
                 }
                 /* read_message_cb */
                 parse_message_cb = serv->read_complete_cb;
@@ -132,9 +135,7 @@ void connect_cb(void *argus)
                             /* fall through */
                         case RCB_ERROR:
                             epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
-                            if (session->additional_info)
-                                free(session->additional_info);
-                            free(session);
+                            free_session(session);
                             break;
                         default:
                             break;
@@ -149,9 +150,7 @@ void connect_cb(void *argus)
                     res = write_message_cb(session);
                     if (res == WCB_ERROR) {
                         epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
-                        if (session->additional_info)
-                            free(session->additional_info);
-                        free(session);
+                        free_session(session);
                     }
                 }
             }
@@ -166,7 +165,6 @@ void connect_cb(void *argus)
         LOGD("lock in thread\n");
         LOGD("address %p, len %d\n", channel_ptr, channel_ptr->len);
         // sleep(5);
-        // LOGD("error %d\n", err);
         if (err == EBUSY)
             continue;
         if (err != 0)
@@ -183,30 +181,8 @@ void connect_cb(void *argus)
         pthread_mutex_unlock(&(channel_ptr->lock));
 
         /* add event */
-        // struct epoll_event ev;
-        // tcp_session_t* session_ptr = (tcp_session_t*)calloc(1, sizeof(tcp_session_t));
-        // LOGD("create tcp session\n");
-        // curr_serv = channel_ptr->serv;
-        // LOGD("add info isze is %d\n", curr_serv->add_info_size);
-        // if (curr_serv->add_info_size != 0) {
-        //     session_ptr->add_info_size = curr_serv->add_info_size;
-        //     session_ptr->additional_info = malloc(sizeof(session_ptr->add_info_size));
-        //     memcpy(session_ptr->additional_info, curr_serv->additional_info, curr_serv->add_info_size);
-        // }
-        // LOGD("create add info\n");
-        // session_ptr->fd = conn_ptr->fd;
-        // session_ptr->epfd = epfd;
-        // session_ptr->server = channel_ptr->serv;
-        // session_ptr->read_pos = session->read_buf;
-        // ev.data.ptr = session_ptr;
-        // ev.events = EPOLLIN | EPOLLOUT;
-        // if (epoll_ctl(epfd, EPOLL_CTL_ADD, session_ptr->fd, &ev) != 0)
-        //     error("add fd to epoll in thread");
-        // free(conn_ptr);
-        // LOGD("add epoll\n");
 
         tcp_session_t* session_new = create_session(conn_ptr->fd, epfd, serv);
-        struct epoll_event ev;
         ev.data.ptr = session_new;
         ev.events = EPOLLIN | EPOLLOUT;
         if (epoll_ctl(epfd, EPOLL_CTL_ADD, session_new->fd, &ev) != 0)
