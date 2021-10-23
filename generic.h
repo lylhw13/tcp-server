@@ -47,6 +47,7 @@ typedef struct tcp_session {
     char read_buf[BUFSIZE];
     char *read_pos;     /* last read end pos */
     char *parse_pos;    /* last parse end pos */
+    
     int parse_state;
 
     int message_offset;
@@ -66,10 +67,14 @@ typedef int (*on_read_complete_fun)(tcp_session_t *seesion);
 typedef int (*on_write_complete_fun)(tcp_session_t *seesion);
 
 /* return value for on_read_message_fun */
-#define PARSE_ERROR -1
-#define PARSE_OK 0
-#define PARSE_MORE 1
-#define PARSE_AGAIN 2
+#define RCB_ERROR -1
+#define RCB_OK 0
+#define RCB_NEED_MORE 1
+#define RCB_AGAIN 2
+
+#define WCB_ERROR -1
+#define WCB_OK 0
+#define WCB_AGAIN 1
 
 #define LOOP_RUN 1
 #define LOOP_STOP 0

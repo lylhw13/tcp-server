@@ -66,7 +66,9 @@ void connect_cb(void *argus)
             session = (tcp_session_t*)events[i].data.ptr;
             epfd = session->epfd;
             fd = session->fd;
+            curr_serv = session->server;
             if (events[i].events & EPOLLIN) {
+                /* normal read */
                 if ((nread = read_cb(events[i].data.ptr)) == 0) {
                     struct epoll_event ev;
                     ev.data.ptr = events[i].data.ptr;
@@ -74,20 +76,25 @@ void connect_cb(void *argus)
                     if (epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev) < 0)
                         error("epoll_clt\n");
                 }
-                parse_message_cb = session->server->read_complete_cb;
+                /* read_message_cb */
+                parse_message_cb = curr_serv->read_complete_cb;
                 if (parse_message_cb != NULL) {
                     int res;
                     res = parse_message_cb(session);
-                    if(res == PARSE_OK) {
-                        LOGD("shift buf\n");
-                        ;   /* TODO */
-                    }
-                    else if (res == PARSE_ERROR) {
-                        epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
-                    }
-                    else if (res == PARSE_AGAIN) {
-                        /* check buffer full */
-                        ;
+                    switch(res) {
+                        case RCB_AGAIN:
+                            if (session->read_pos < session->read_buf + BUFSIZE) 
+                                break;
+                            LOGD("TOO LONG MESSAGE\n");
+                            /* fall through */
+                        case RCB_ERROR:
+                            epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
+                            if (session->additional_info)
+                                free(session->additional_info);
+                            free(session);
+                            break;
+                        default:
+                            break;
                     }
                 }
             }
