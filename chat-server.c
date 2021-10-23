@@ -15,6 +15,7 @@
 
 int on_read_message_complete(tcp_session_t *session)
 {
+    LOGD("%s\n", __FUNCTION__);
     int err, length;
     struct message *msg_begin;
     chat_messages_t *msg_info;
@@ -65,6 +66,7 @@ int on_read_message_complete(tcp_session_t *session)
 
 int on_write_message_complete(tcp_session_t *session)
 {
+    LOGD("%s\n", __FUNCTION__);
     int err;
     struct message *msg;
     struct message_entry *msg_entry;
@@ -125,7 +127,7 @@ int main(int argc, char *argv[])
     server_t *serv;
     char *host = "127.0.0.1";
     char *port = "33333";
-    int conn_loop_num = 5;
+    int conn_loop_num = 2;
     chat_messages_t chat_msgs;
 
     pthread_mutex_t lock;
@@ -137,6 +139,7 @@ int main(int argc, char *argv[])
     STAILQ_INIT(&message_queue_head);   /* message queue for group */
 
     serv->read_complete_cb = on_read_message_complete;
+    serv->write_complete_cb = on_write_message_complete;
 
     chat_msgs.lock = &lock;
     chat_msgs.message_queue_head = &message_queue_head;
