@@ -3,7 +3,7 @@ CC = gcc
 
 LIBS = -lpthread
 
-PROM = basic.out chat-client.out #chat_server.out
+PROM = basic.out chat-client.out chat-server.out
 
 all: $(PROM)
 
@@ -19,8 +19,8 @@ basic.out: thread-pool.o tcp-server.o http.o connection.o basic.c
 chat-client.out: chat.h chat-client.c
 	$(CC) $(CFLAGS) -o chat-client.out chat-client.c $(LIBS)
 
-# basic.out: thread-pool.o tcp-server.o http.o connection.o basic.c
-# 	$(CC) $(CFLAGS) -o basic.out thread-pool.o tcp-server.o http.o connection.o basic.c $(LIBS)
+chat-server.out: chat.h thread-pool.o tcp-server.o http.o connection.o chat-server.c
+	$(CC) $(CFLAGS) -o basic.out thread-pool.o tcp-server.o http.o connection.o chat-server.c $(LIBS)
 
 http.o: generic.h
 connection.o: generic.h

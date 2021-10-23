@@ -20,7 +20,7 @@ int on_read_message_complete(tcp_session_t *session)
     chat_messages_t *msg_info;
 
     msg_begin = (struct message *)session->read_buf;
-    chat_messages_t *msg_info = (chat_messages_t*)session->additional_info;
+    msg_info = (chat_messages_t*)session->additional_info;
 
     while (1) {
         if ((session->read_pos - session->parse_pos) < offsetof(struct message, body))
@@ -39,10 +39,10 @@ int on_read_message_complete(tcp_session_t *session)
         length = msg_size_by_len(msg_begin->length);
         if (length <= (session->read_pos - session->parse_pos)) {
             struct message *ptr = (struct message *)malloc(length);
-            memncpy(ptr, session->parse_pos, length);
+            memcpy(ptr, session->parse_pos, length);
             session->parse_pos += length;
 
-            struct message_entry *msg_entry = (struct message *)malloc(sizeof(struct message_entry));
+            struct message_entry *msg_entry = (struct message_entry *)malloc(sizeof(struct message_entry));
             msg_entry->ptr = ptr;
             
             err = pthread_mutex_trylock(msg_info->lock);
@@ -110,8 +110,8 @@ int on_write_message_complete(tcp_session_t *session)
         }
     }
 
-    msg = msg_entry;
-    session->write_buf = msg_entry->ptr;
+    // msg = msg_entry;
+    session->write_buf = (char *)msg_entry->ptr;
     session->write_pos = session->write_buf;
     session->write_size = msg_size(msg_entry->ptr);
     pthread_mutex_unlock(msg_info->lock);

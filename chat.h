@@ -21,7 +21,7 @@ struct message_entry{
     STAILQ_ENTRY(message_entry) entries;
 };
 
-STAILQ_HEAD(message_queue, message);
+STAILQ_HEAD(message_queue, message_entry);
 
 typedef struct chat_messages {
     pthread_mutex_t *lock;
