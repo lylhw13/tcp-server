@@ -72,7 +72,7 @@ int on_write_message_complete(tcp_session_t *session)
 
     /* last write has not complete */
     if (session->write_pos < session->write_buf + session->write_size)
-        return 0;
+        return WCB_AGAIN;
 
     /* reset the write buffer */
     session->write_size = 0;
@@ -82,21 +82,21 @@ int on_write_message_complete(tcp_session_t *session)
     msg_info = (chat_messages_t*)session->additional_info;
     err = pthread_mutex_lock(msg_info->lock);
     if (err == EBUSY)
-        return 0;
+        return WCB_AGAIN;
     if (err != 0)
-        return -1;
+        return WCB_ERROR;
     
     /* no more message */
     if (*(msg_info->msg_total_num) == 0 || 
         msg_info->msg_offset == *(msg_info->msg_total_num)) {
         pthread_mutex_unlock(msg_info->lock);
-        return 0;
+        return WCB_AGAIN;
     }
 
     if (session->write_buf == NULL) {
         if (msg_info->msg_offset != 0) {
             pthread_mutex_unlock(msg_info->lock);
-            return -1;
+            return WCB_ERROR;
         }
         
         msg_entry = STAILQ_FIRST(msg_info->message_queue_head);
@@ -106,7 +106,7 @@ int on_write_message_complete(tcp_session_t *session)
         msg_entry = STAILQ_NEXT(msg_entry, entries);
         if (msg_entry == NULL) {
             pthread_mutex_unlock(msg_info->lock);
-            return 0;
+            return WCB_AGAIN;
         }
     }
 
@@ -115,7 +115,7 @@ int on_write_message_complete(tcp_session_t *session)
     session->write_pos = session->write_buf;
     session->write_size = msg_size(msg_entry->ptr);
     pthread_mutex_unlock(msg_info->lock);
-    return 0;
+    return WCB_OK;
 }
 
 

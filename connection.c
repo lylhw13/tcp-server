@@ -16,7 +16,7 @@ int read_cb(tcp_session_t *session)
     struct epoll_event ev;
 
     errno = 0;
-    nread = read(fd, buf, BUFSIZE);
+    nread = read(fd, session->read_pos, session->read_buf + BUFSIZE - session->read_pos);
     if (nread < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return nread;
@@ -28,9 +28,31 @@ int read_cb(tcp_session_t *session)
         return nread;
     
     /* process request */
-    fprintf(stdout, "thread %ld, read \n", (long)pthread_self());
+    // fprintf(stdout, "thread %ld, read \n", (long)pthread_self());
     write(STDOUT_FILENO, buf, nread);
     return nread;
+}
+int write_cb(tcp_session_t* session)
+{
+    int nwrite;
+    int length;
+    int fd = session->fd;
+
+    if (session->write_buf == NULL || session->write_pos == NULL)
+        return 0;
+
+    length = session->write_buf + session->write_size - session->write_pos;
+    
+    errno = 0;
+    nwrite = write(fd, session->write_pos, length);
+    if (nwrite < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return 0;
+
+        error("write in write_cb\n");
+    }
+    session->write_pos += nwrite;
+    return nwrite;
 }
 
 /* infinite loop */
@@ -39,14 +61,15 @@ void connect_cb(void *argus)
     LOGD("connect loop in thread %ld\n", (long)pthread_self());
     channel_t *channel_ptr = (channel_t *)argus;
     LOGD("thread %ld loop address %p\n", (long)pthread_self(), channel_ptr);
-    int i, n;
+    int i, n, res;
     int epfd, fd;
     int nr_events;
     int nread, nwrite;
     connection_t *conn_ptr;
     tcp_session_t *session;
     server_t *curr_serv;
-    on_read_complete_fun parse_message_cb = NULL;
+    on_read_complete_fun parse_message_cb;
+    on_write_complete_fun write_message_cb;
 
     epfd = epoll_create1(0);
     if (epfd < 0)
@@ -79,7 +102,7 @@ void connect_cb(void *argus)
                 /* read_message_cb */
                 parse_message_cb = curr_serv->read_complete_cb;
                 if (parse_message_cb != NULL) {
-                    int res;
+                    
                     res = parse_message_cb(session);
                     switch(res) {
                         case RCB_AGAIN:
@@ -99,7 +122,18 @@ void connect_cb(void *argus)
                 }
             }
             if (events[i].events & EPOLLOUT) {
-                ; /* write cb */
+                /* normal write */
+                write_cb(session);
+                write_message_cb = curr_serv->write_complete_cb;
+                if (write_message_cb != NULL) {
+                    res = write_message_cb(session);
+                    if (res == WCB_ERROR) {
+                        epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
+                        if (session->additional_info)
+                            free(session->additional_info);
+                        free(session);
+                    }
+                }
             }
         } /* end for */
 
