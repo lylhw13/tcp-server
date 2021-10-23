@@ -53,7 +53,7 @@ typedef struct tcp_session {
 
     /* for write */
     char *write_buf;
-    char *wirte_pos;
+    char *write_pos;
     int write_buf_free_flag;    /* wheter need to free */
     size_t write_size;
     struct server *server;

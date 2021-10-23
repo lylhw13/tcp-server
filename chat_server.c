@@ -58,16 +58,58 @@ int on_read_message_complete(tcp_session_t *session)
 
 int on_write_message_complete(tcp_session_t *session)
 {
+    /* last write has not complete */
+    if (session->write_buf + session->write_size > session->write_pos)
+        return 0;
+    session->write_size = 0;
+    session->write_pos = session->write_buf;
+
     int err;
-    chat_messages_t *msg = (chat_messages_t*)session->additional_info;
-    err = pthread_mutex_lock(msg->lock);
+    chat_messages_t *msg_info = (chat_messages_t*)session->additional_info;
+    struct message_entry *msg_entry;
+    struct message *msg;
+    err = pthread_mutex_lock(msg_info->lock);
     if (err == EBUSY)
         return 0;
     if (err != 0)
         return -1;
     
-    
+    /* messages read complete */
+    if (*(msg_info->msg_total_num) == 0 || 
+        msg_info->msg_offset == *(msg_info->msg_total_num)) {
+        pthread_mutex_unlock(msg_info->lock);
+        return 0;
+    }
 
+    if (session->write_buf == NULL) {
+        if (msg_info->msg_offset != 0) {
+            pthread_mutex_unlock(msg_info->lock);
+            return -1;
+        }
+        
+        msg_entry = STAILQ_FIRST(msg_info->message_queue_head);
+
+    }
+    else {
+        msg_entry = (struct message_entry *)session->write_buf;
+        msg_entry = STAILQ_NEXT(msg_entry, entries);
+        if (msg_entry == NULL) {
+            pthread_mutex_unlock(msg_info->lock);
+            return 0;
+        }
+    }
+
+    // msg_entry = session->write_buf - offsetof(struct message_entry, ptr);
+
+
+    msg = msg_entry;
+    session->write_buf = msg_entry->ptr;
+    session->write_pos = session->write_buf;
+    session->write_size = msg_size(msg_entry->ptr);
+    pthread_mutex_unlock(msg_info->lock);
+
+    return 0;
+    
 }
 
 

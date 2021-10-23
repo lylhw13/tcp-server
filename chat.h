@@ -28,6 +28,7 @@ typedef struct chat_messages {
     int *msg_total_num;
 }chat_messages_t;
 
-#define msg_entry_size(len) ((offsetof(struct message, body) + len + 8) & ~7)
+#define msg_size_by_len(len) ((offsetof(struct message, body) + len + 8) & ~7)
+#define msg_size(msg) msg_size_by_len((msg)->length)
 
 #endif
