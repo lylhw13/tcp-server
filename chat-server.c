@@ -147,10 +147,16 @@ int on_write_message_complete(tcp_session_t *session)
     //     }
     //     msg_info->msg_offset++;
     // }
+    printf("author %d, fd %d, body %s\n", msg_entry->ptr->author, session->fd, (char *)(msg_entry->ptr->body));
     // if (msg_entry->ptr->author != session->fd) {
         session->write_buf = (char *)(msg_entry->ptr);    
         session->write_pos = 0;
-        session->write_size = msg_size(msg_entry->ptr);
+        if (msg_entry->ptr->author != session->fd)
+
+            session->write_size = msg_size(msg_entry->ptr);
+        else 
+            session->write_size = 0;
+            
         printf("fd %d, msg offset%d\n",session->fd, msg_info->msg_offset);
     // }
     // printf("read to write %.*s\n",(int)session->write_size, session->write_buf + session->write_pos);
