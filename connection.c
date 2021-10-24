@@ -135,6 +135,7 @@ void connect_cb(void *argus)
                 if ((nread = read_cb(events[i].data.ptr)) == 0) {
                     epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
                     free_session(session);
+                    continue;
                 }
                 /* read_message_cb */
                 parse_message_cb = serv->read_complete_cb;
@@ -149,6 +150,7 @@ void connect_cb(void *argus)
                         case RCB_ERROR:
                             epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
                             free_session(session);
+                            continue;
                             break;
                         default:
                             break;
@@ -164,6 +166,7 @@ void connect_cb(void *argus)
                     if (res == WCB_ERROR) {
                         epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
                         free_session(session);
+                        continue;
                     }
                 }
             }
