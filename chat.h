@@ -13,6 +13,7 @@
 struct message{
     unsigned int signature;
     unsigned int version;
+    // unsigned int author;
     unsigned int length;
     unsigned char body[0];
 };
@@ -23,12 +24,12 @@ struct message_entry{
 
 STAILQ_HEAD(message_queue, message_entry);
 
-typedef struct chat_messages {
+typedef struct chat_messages_queue {
     pthread_mutex_t *lock;
     struct message_queue *message_queue_head;
     int msg_offset;
     int *msg_total_num;
-}chat_messages_t;
+}chat_messages_queue_t;
 
 // #define msg_size_by_len(len) ((offsetof(struct message, body) + len + 8) & ~7)
 #define msg_size_by_len(len) (offsetof(struct message, body) + len)

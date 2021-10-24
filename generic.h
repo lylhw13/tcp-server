@@ -45,9 +45,9 @@ typedef struct tcp_session {
     int epfd;
     /* for read */
     char read_buf[BUFSIZE];
-    char *read_pos;     /* last read end pos */
-    char *parse_pos;    /* last parse end pos */
-    
+    int read_pos;     /* last read end pos */
+    int parse_pos;    /* last parse end pos */
+
     int parse_state;
 
     int message_offset;

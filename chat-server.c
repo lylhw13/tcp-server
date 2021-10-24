@@ -27,15 +27,16 @@ void print_msg(struct message_queue*head)
 int on_read_message_complete(tcp_session_t *session)
 {
     LOGD("%s\n", __FUNCTION__);
-    int err, length;
+    int err, length, offset;
     struct message *msg_begin;
-    chat_messages_t *msg_info;
+    chat_messages_queue_t *msg_info;
 
     msg_begin = (struct message *)session->read_buf;
-    msg_info = (chat_messages_t*)session->additional_info;
+    msg_info = (chat_messages_queue_t*)session->additional_info;
+    offset = offsetof(struct message, body);
 
     while (1) {
-        if ((session->read_pos - session->parse_pos) < offsetof(struct message, body))
+        if ((session->read_pos - session->parse_pos) < offset)
             return MESSAGE_PARTIAL;
 
         if (msg_begin->signature != MESSAGE_SIGNATURE) {
@@ -51,37 +52,37 @@ int on_read_message_complete(tcp_session_t *session)
         length = msg_size_by_len(msg_begin->length);
         LOGD("message size %d, read size %d\n", length, (int)(session->read_pos - session->parse_pos));
         if (length > (session->read_pos - session->parse_pos))
-            break;
-        struct message *ptr = (struct message *)malloc(length + 16);
+            return MESSAGE_PARTIAL;
+
+        struct message *ptr = (struct message *)malloc(length);
         if (ptr == NULL)
             error("malloc message\n");
-        memcpy(ptr, session->parse_pos, length);
-
+        memcpy(ptr, session->read_buf + session->parse_pos, length);
         session->parse_pos += length;
 
-        LOGD("befor mssage_entry\n");
         struct message_entry *msg_entry = (struct message_entry *)malloc(sizeof(struct message_entry));
         if (msg_entry == NULL)
             error("malloc message_entry\n");
         msg_entry->ptr = ptr;
         
-        LOGD("before lock\n");
+        // LOGD("before lock\n");
         err = pthread_mutex_trylock(msg_info->lock);
         if (err == EBUSY)
             return MESSAGE_LOCK_AGAIN;
         if (err != 0)
             return MESSAGE_ERROR;
         STAILQ_INSERT_TAIL(msg_info->message_queue_head, msg_entry, entries);
-        printf("before msg num is %d\n", *(msg_info->msg_total_num));
         (*(msg_info->msg_total_num))++;
         printf("after msg num is %d\n", *(msg_info->msg_total_num));
         pthread_mutex_unlock(msg_info->lock);
 
-        // printf("msg num is %d\n", *(msg_info->msg_total_num));
         print_msg(msg_info->message_queue_head);
         /* shift buffer */
-        memmove(session->read_buf, session->parse_pos, session->read_pos - session->parse_pos);
-        return MESSAGE_OK;
+        memmove(session->read_buf, session->read_buf + session->parse_pos, session->read_pos - session->parse_pos);
+        session->read_pos -= session->parse_pos;
+        session->parse_pos = 0;
+
+        // return MESSAGE_OK;
     }
 
     LOGD("end %s\n", __FUNCTION__);
@@ -95,7 +96,7 @@ int on_write_message_complete(tcp_session_t *session)
     int err;
     struct message *msg;
     struct message_entry *msg_entry;
-    struct chat_messages *msg_info;
+    struct chat_messages_queue *msg_info;
 
     /* last write has not complete */
     if (session->write_pos <= session->write_buf + session->write_size && session->write_size != 0)
@@ -107,7 +108,7 @@ int on_write_message_complete(tcp_session_t *session)
     session->write_pos = session->write_buf;
 
 
-    msg_info = (chat_messages_t*)session->additional_info;
+    msg_info = (chat_messages_queue_t*)session->additional_info;
     err = pthread_mutex_trylock(msg_info->lock);
     if (err == EBUSY)
         return WCB_AGAIN;
@@ -158,7 +159,7 @@ int main(int argc, char *argv[])
     char *host = "127.0.0.1";
     char *port = "33333";
     int conn_loop_num = 2;
-    chat_messages_t chat_msgs;
+    chat_messages_queue_t chat_msgs;
 
     pthread_mutex_t lock;
     int msg_total_num;

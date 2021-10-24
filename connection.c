@@ -15,8 +15,8 @@ tcp_session_t * create_session(int fd, int epfd, server_t *serv)
     session->fd = fd;
     session->epfd = epfd;
     session->server = serv;
-    session->read_pos = session->read_buf;
-    session->parse_pos = session->read_buf;
+    // session->read_pos = session->read_buf;
+    // session->parse_pos = session->read_buf;
 
     if (serv->add_info_size != 0) {
         session->add_info_size = serv->add_info_size;
@@ -44,7 +44,7 @@ int read_cb(tcp_session_t *session)
     struct epoll_event ev;
 
     errno = 0;
-    nread = read(fd, session->read_pos, session->read_buf + BUFSIZE - session->read_pos);
+    nread = read(fd, session->read_buf + session->read_pos, BUFSIZE - session->read_pos);
     if (nread < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return nread;
@@ -142,7 +142,7 @@ void connect_cb(void *argus)
                     res = parse_message_cb(session);
                     switch(res) {
                         case RCB_AGAIN:
-                            if (session->read_pos < session->read_buf + BUFSIZE) 
+                            if (session->read_pos < BUFSIZE) 
                                 break;
                             LOGD("TOO LONG MESSAGE\n");
                             /* fall through */
