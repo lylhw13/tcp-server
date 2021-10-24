@@ -164,7 +164,7 @@ void readwrite(int sockfd)
             
             length = msg_size(msg_ptr);
 
-            printf("netinpos %d, length %d\n", netinbufpos, length);
+            // printf("netinpos %d, length %d\n", netinbufpos, length);
 
             if (length > BUFSIZE)
                 error("too large message\n");
@@ -195,8 +195,6 @@ void readwrite(int sockfd)
                     exit(EXIT_FAILURE);
                 }
             }
-
-            // printf("write %d\n", nwrite);
 
             /* write for next time */
             netinwritepos += nwrite;

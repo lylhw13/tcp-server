@@ -23,6 +23,60 @@ void setnonblocking(int fd)
     return;
 }
 
+int build_server(const char *port)
+{
+    struct addrinfo hints, *result, *rp;
+    int ecode;
+    int listenfd;
+
+    struct sockaddr_storage cliaddr;
+    socklen_t cliaddr_len;
+    int connfd;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+
+    if ((ecode = getaddrinfo(NULL, port, &hints, &result))) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(ecode));
+        exit(EXIT_FAILURE);
+    }
+
+    for (rp = result; rp != NULL; rp = rp->ai_next) {
+        listenfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        if (listenfd == -1)
+            continue;
+
+        int opt = 1;
+        if (setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
+            perror("setsockopt");
+
+        if (bind(listenfd, rp->ai_addr, rp->ai_addrlen) == 0)
+            break;
+
+        close(listenfd);
+    }
+
+    freeaddrinfo(result);
+
+    if (rp == NULL) {
+        error("Could not bind");
+    }
+
+    if (listen(listenfd, 64) < 0)
+        error("listen");
+    for (;;) {
+        cliaddr_len= sizeof(cliaddr);
+
+        connfd = accept(listenfd, (struct sockaddr *)&cliaddr, &cliaddr_len);
+        if (connfd >= 0)
+            break;
+    }
+
+    return connfd;
+}
+
 int build_client(char *host, char *port)
 {
     struct addrinfo hints, *result, *rp;
@@ -53,18 +107,6 @@ int build_client(char *host, char *port)
     return sockfd;
 }
 
-void rio_write(int fd, char *buf, size_t len)
-{
-    int n, nwrite = 0;
-    while (len > 0) {
-        n = write(fd, buf + nwrite, len);
-        if (n < 0)
-            error("write");
-        nwrite += n;
-        len -= n;
-    }
-}
-
 int main(int argc, char *argv[])
 {
     char *host, *port;
@@ -76,20 +118,32 @@ int main(int argc, char *argv[])
     // struct pollfd pfds[1];
     // int num;
     // int i;
+    // if (ar)
 
-    if (argc < 3) {
-        usage();
-        exit(EXIT_FAILURE);
+    // if (argc < 3) {
+    //     usage();
+    //     exit(EXIT_FAILURE);
+    // }
+    // host = argv[1];
+    // port = argv[2];
+    if (argc == 2) {
+        port = argv[1];
+        sockfd = build_server(port);
+        // setnonblocking(sockfd);
+        // readwrite(sockfd);
     }
-    host = argv[1];
-    port = argv[2];
+    if (argc == 3) {
+        host = argv[1];
+        port = argv[2];
+        sockfd = build_client(host, port);
+    }
 
     // memset(&msg, 0, sizeof(msg));
     // body_pos = offsetof(struct message, body);
     // msg.signature = MESSAGE_SIGNATURE;
     // msg.version = 1.0;
 
-    sockfd = build_client(host, port);
+    // sockfd = build_client(host, port);
     setnonblocking(sockfd);
 
     readwrite(sockfd);
