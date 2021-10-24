@@ -152,7 +152,7 @@ void readwrite(int sockfd)
             printf("in %.*s", nread, netinbuf + netinbufpos);
             netinbufpos += nread;
 
-            if (netinparsepos > 0)
+            if (netinbufpos > 0)
                 pfds[POLL_STDOUT].events = POLLOUT;
 
             if (netinbufpos == BUFSIZE)
@@ -160,7 +160,7 @@ void readwrite(int sockfd)
         }
 
         /* stdout from netinbuf */
-        if (pfds[POLL_STDOUT].revents & POLLOUT && netinparsepos > 0)
+        if (pfds[POLL_STDOUT].revents & POLLOUT && netinbufpos > 0)
         {
             // netinwritepos = netinparsepos;
             while (1) {
