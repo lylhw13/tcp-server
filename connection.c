@@ -40,11 +40,11 @@ int read_cb(tcp_session_t *session)
     // LOGD("%s\n", __FUNCTION__);
     int nread;
     int fd = session->fd;
-    char *buf = session->read_buf;
+    char *buf = *session->read_buf;
     struct epoll_event ev;
 
     errno = 0;
-    nread = read(fd, session->read_buf + session->read_pos, BUFSIZE - session->read_pos);
+    nread = read(fd, buf + session->read_pos, BUFSIZE - session->read_pos);
     if (nread < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return nread;
@@ -59,7 +59,7 @@ int read_cb(tcp_session_t *session)
     /* process request */
     // fprintf(stdout, "thread %ld, read \n", (long)pthread_self());
     write(STDOUT_FILENO, buf, nread);
-    LOGD("\nend %s\n",  __FUNCTION__);
+    LOGD("end %s\n",  __FUNCTION__);
     return nread;
 }
 void write_cb(tcp_session_t* session)
@@ -69,15 +69,15 @@ void write_cb(tcp_session_t* session)
     int length;
     int fd = session->fd;
 
-    if (session->write_buf == NULL || session->write_pos == NULL)
+    if (session->write_buf == NULL)
         return ;
 
-    length = session->write_buf + session->write_size - session->write_pos;
+    length = session->write_size - session->write_pos;
     if (length == 0)
         return;
-    
+    LOGD("begint to write\n");
     errno = 0;
-    nwrite = write(fd, session->write_pos, length);
+    nwrite = write(fd, session->write_buf + session->write_pos, length);
     if (nwrite < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return;
@@ -85,9 +85,9 @@ void write_cb(tcp_session_t* session)
         error("write in write_cb\n");
     }
 
-    printf("write %.*s\n", nwrite,session->write_pos);
+    // printf("write %.*s\n", nwrite,session->write_buf + session->write_pos);
     session->write_pos += nwrite;
-    // LOGD("end %s\n", __FUNCTION__);
+    LOGD("end %s\n", __FUNCTION__);
     return ;
 }
 

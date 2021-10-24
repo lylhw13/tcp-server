@@ -31,7 +31,7 @@ int on_read_message_complete(tcp_session_t *session)
     struct message *msg_begin;
     chat_messages_queue_t *msg_info;
 
-    msg_begin = (struct message *)session->read_buf;
+    msg_begin = (struct message *)(*session->read_buf);
     msg_info = (chat_messages_queue_t*)session->additional_info;
     offset = offsetof(struct message, body);
 
@@ -95,17 +95,17 @@ int on_write_message_complete(tcp_session_t *session)
     // LOGD("%s\n", __FUNCTION__);
     int err;
     struct message *msg;
-    struct message_entry *msg_entry;
+    struct message_entry *msg_entry, *msg_entry_next;
     struct chat_messages_queue *msg_info;
 
     /* last write has not complete */
-    if (session->write_pos <= session->write_buf + session->write_size && session->write_size != 0)
+    if (session->write_pos < session->write_size)
         return WCB_AGAIN;
 
     // LOGD("begin to write\n");
     /* reset the write buffer */
     session->write_size = 0;
-    session->write_pos = session->write_buf;
+    session->write_pos = 0;
 
 
     msg_info = (chat_messages_queue_t*)session->additional_info;
@@ -132,18 +132,20 @@ int on_write_message_complete(tcp_session_t *session)
     }
     else {
         msg_entry = (struct message_entry *)session->write_buf;
-        msg_entry = STAILQ_NEXT(msg_entry, entries);
-        if (msg_entry == NULL) {
+        msg_entry_next = STAILQ_NEXT(msg_entry, entries);
+        if (msg_entry_next == NULL) {
             pthread_mutex_unlock(msg_info->lock);
             return WCB_AGAIN;
         }
+        msg_entry = msg_entry_next;
     }
 
     // msg = msg_entry;
-    session->write_buf = (char *)msg_entry->ptr;
-    session->write_pos = session->write_buf;
+    session->write_buf = (char *)(msg_entry);    
+    session->write_pos = 0;
     session->write_size = msg_size(msg_entry->ptr);
-    printf("read to write %.*s\n",(int)session->write_size, session->write_pos);
+    msg_info->msg_offset++;
+    printf("read to write %.*s\n",(int)session->write_size, session->write_buf + session->write_pos);
     pthread_mutex_unlock(msg_info->lock);
 
     // LOGD("end %s\n", __FUNCTION__);
