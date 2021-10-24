@@ -149,60 +149,87 @@ void readwrite(int sockfd)
                 }
             }
 
+            printf("in %.*s", nread, netinbuf + netinbufpos);
             netinbufpos += nread;
-            if (netinbufpos < offset)
-                continue;
 
-
-            msg_ptr = (struct message *)netinbuf;
-            if (msg_ptr->signature != MESSAGE_SIGNATURE) 
-                error("error message signature\n");
-            
-
-            if (msg_ptr->version != MESSAGE_VERSION) 
-                error("error message version\n");
-            
-            length = msg_size(msg_ptr);
-
-            // printf("netinpos %d, length %d\n", netinbufpos, length);
-
-            if (length > BUFSIZE)
-                error("too large message\n");
-            
-            if (length > netinbufpos)
-                continue;
-
-            netinparsepos = length;
-            netinwritepos = offset;
-            
             if (netinparsepos > 0)
                 pfds[POLL_STDOUT].events = POLLOUT;
 
-            if (netinbufpos == BUFSIZE || netinparsepos != 0)
+            if (netinbufpos == BUFSIZE)
                 pfds[POLL_NETIN].events = 0;
         }
 
         /* stdout from netinbuf */
-        if (pfds[POLL_STDOUT].revents & POLLOUT && netinparsepos > netinwritepos)
+        if (pfds[POLL_STDOUT].revents & POLLOUT && netinparsepos > 0)
         {
-            errno = 0;
-            nwrite = write(pfds[POLL_STDOUT].fd, netinbuf + netinwritepos, netinparsepos - netinwritepos);
-            if (nwrite < 0) {
-                if (errno == EAGAIN)
-                    continue;
-                else {
-                    perror("stdout write");
-                    exit(EXIT_FAILURE);
+            // netinwritepos = netinparsepos;
+            while (1) {
+                if (netinwritepos == netinparsepos) {
+
+                    if (netinbufpos - netinparsepos < offset)
+                        break;
+
+                    msg_ptr = (struct message *)netinbuf + netinparsepos;
+                    if (msg_ptr->signature != MESSAGE_SIGNATURE) 
+                        error("error message signature\n");
+                    
+
+                    if (msg_ptr->version != MESSAGE_VERSION) 
+                        error("error message version\n");
+                    
+                    length = msg_size(msg_ptr);
+
+                    if (length > BUFSIZE)
+                        error("too large message\n");
+                    
+                    if (length > netinbufpos)
+                        break;
+                    netinwritepos = netinparsepos + offsetof(struct message, body);
+                    netinparsepos += length;
                 }
+                
+                errno = 0;
+                nwrite = write(pfds[POLL_STDOUT].fd, netinbuf + netinwritepos, netinparsepos - netinwritepos);
+                if (nwrite < 0) {
+                    if (errno == EAGAIN)
+                        continue;
+                    else {
+                        perror("stdout write");
+                        exit(EXIT_FAILURE);
+                    }
+                }
+                netinwritepos += nwrite;
             }
 
-            /* write for next time */
-            netinwritepos += nwrite;
-            if (netinwritepos == netinparsepos) {
-                memmove(netinbuf, netinbuf + netinparsepos, netinbufpos - netinparsepos);
-                netinbufpos -= netinparsepos;
-                netinparsepos = 0;
-            }
+            // if (netinwritepos == netinparsepos) {
+            //     memmove(netinbuf, netinbuf + netinparsepos, netinbufpos - netinparsepos);
+            //     netinbufpos -= netinparsepos;
+            //     netinparsepos = 0;
+            // }
+
+            memmove(netinbuf, netinbuf + netinparsepos, netinbufpos - netinparsepos);
+            netinbufpos -= netinparsepos;
+            netinparsepos = 0;
+            netinwritepos = 0;
+
+            // errno = 0;
+            // nwrite = write(pfds[POLL_STDOUT].fd, netinbuf + netinwritepos, netinparsepos - netinwritepos);
+            // if (nwrite < 0) {
+            //     if (errno == EAGAIN)
+            //         continue;
+            //     else {
+            //         perror("stdout write");
+            //         exit(EXIT_FAILURE);
+            //     }
+            // }
+
+            // /* write for next time */
+            // netinwritepos += nwrite;
+            // if (netinwritepos == netinparsepos) {
+            //     memmove(netinbuf, netinbuf + netinparsepos, netinbufpos - netinparsepos);
+            //     netinbufpos -= netinparsepos;
+            //     netinparsepos = 0;
+            // }
 
             if (netinparsepos == 0) {
                 pfds[POLL_STDOUT].events = 0;

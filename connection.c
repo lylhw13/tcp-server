@@ -78,14 +78,19 @@ void write_cb(tcp_session_t* session)
     LOGD("begint to write\n");
     errno = 0;
     nwrite = write(fd, session->write_buf + session->write_pos, length);
+    // write(fd, "\n", 1);
     if (nwrite < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return;
 
         error("write in write_cb\n");
     }
+    // write(fd, "\n", 1);
+    struct message *msg;
+    msg = (struct message*)(session->write_buf);
+    printf("fd %d,msg %.*s\n", session->fd, msg->length, msg->body);
+    printf("fd %d,msg %.*s\n", session->fd, length, session->write_buf + session->write_pos);
 
-    // printf("write %.*s\n", nwrite,session->write_buf + session->write_pos);
     session->write_pos += nwrite;
     LOGD("end %s\n", __FUNCTION__);
     return ;
