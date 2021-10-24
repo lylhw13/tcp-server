@@ -92,7 +92,7 @@ extern void server_destory(server_t *);
 
 extern void setnonblocking(int fd);
 extern int create_and_bind(const char* port);
-extern int build_client(const char*host, const char*port);
+extern int create_and_connect(const char*host, const char*port);
 extern void connect_cb(void *argus);
 
 #define LOGD(...) fprintf(stderr, __VA_ARGS__)

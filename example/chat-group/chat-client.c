@@ -1,5 +1,5 @@
 #include "chat.h"
-#include "generic.h"
+#include "../../generic.h"
 
 #include <netdb.h>
 #include <string.h>
@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
     if (argc == 3) {
         host = argv[1];
         port = argv[2];
-        sockfd = build_client(host, port);
+        sockfd = create_and_connect(host, port);
     }
 
     if (sockfd < 0)

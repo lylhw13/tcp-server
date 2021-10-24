@@ -1,4 +1,4 @@
-#include "generic.h"
+#include "../../generic.h"
 #include "chat.h"
 #include <string.h>
 

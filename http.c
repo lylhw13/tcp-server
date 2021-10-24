@@ -61,7 +61,7 @@ int create_and_bind(const char* port)
     return listenfd;
 }
 
-int build_client(const char *host, const char *port)
+int create_and_connect(const char *host, const char *port)
 {
     struct addrinfo hints, *result, *rp;
     int ecode, sockfd;
