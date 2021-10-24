@@ -172,10 +172,6 @@ void readwrite(int sockfd)
                     if (msg_ptr->signature != MESSAGE_SIGNATURE) 
                         error("error message signature\n");
                     
-
-                    // if (msg_ptr->version != MESSAGE_VERSION) 
-                    //     error("error message version\n");
-                    
                     length = msg_size(msg_ptr);
 
                     if (length > BUFSIZE)

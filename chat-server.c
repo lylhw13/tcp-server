@@ -44,13 +44,7 @@ int on_read_message_complete(tcp_session_t *session)
             return MESSAGE_ERROR;
         }
 
-        // if (msg_begin->version != MESSAGE_VERSION) {
-        //     fprintf(stderr, "error message version\n");
-        //     return MESSAGE_ERROR;
-        // }
-
         length = msg_size_by_len(msg_begin->length);
-        // LOGD("message size %d, read size %d\n", length, (int)(session->read_pos - session->parse_pos));
         if (length > (session->read_pos - session->parse_pos))
             return MESSAGE_PARTIAL;
 
@@ -75,7 +69,6 @@ int on_read_message_complete(tcp_session_t *session)
             return MESSAGE_ERROR;
         STAILQ_INSERT_TAIL(msg_info->message_queue_head, msg_entry, entries);
         (*(msg_info->msg_total_num))++;
-        // printf("after msg num is %d\n", *(msg_info->msg_total_num));
         pthread_mutex_unlock(msg_info->lock);
 
         print_msg(msg_info->message_queue_head);
@@ -84,7 +77,6 @@ int on_read_message_complete(tcp_session_t *session)
         session->read_pos -= session->parse_pos;
         session->parse_pos = 0;
 
-        // return MESSAGE_OK;
     }
 
     LOGD("end %s\n", __FUNCTION__);
@@ -103,7 +95,6 @@ int on_write_message_complete(tcp_session_t *session)
     if (session->write_pos < session->write_size)
         return WCB_AGAIN;
 
-    // LOGD("begin to write\n");
     /* reset the write buffer */
     session->write_size = 0;
     session->write_pos = 0;
@@ -138,31 +129,26 @@ int on_write_message_complete(tcp_session_t *session)
         msg_info->msg_offset++;
     }
 
-    /* filter the message */
-    // while (msg_entry->ptr->author == session->fd){
-    //     msg_entry = STAILQ_NEXT(msg_entry, entries);
-    //     if (msg_entry == NULL) {
-    //         pthread_mutex_unlock(msg_info->lock);
-    //         return WCB_AGAIN;
-    //     }
-    //     msg_info->msg_offset++;
-    // }
-    printf("author %d, fd %d, body %s\n", msg_entry->ptr->author, session->fd, (char *)(msg_entry->ptr->body));
-    // if (msg_entry->ptr->author != session->fd) {
-        session->write_buf = (char *)(msg_entry->ptr);    
-        session->write_pos = 0;
-        if (msg_entry->ptr->author != session->fd)
+    // /* filter the message */
+    // // while (msg_entry->ptr->author == session->fd){
+    // //     msg_entry = STAILQ_NEXT(msg_entry, entries);
+    // //     if (msg_entry == NULL) {
+    // //         pthread_mutex_unlock(msg_info->lock);
+    // //         return WCB_AGAIN;
+    // //     }
+    // //     msg_info->msg_offset++;
+    // // }
+    // printf("author %d, fd %d, body %s\n", msg_entry->ptr->author, session->fd, (char *)(msg_entry->ptr->body));
+    session->write_buf = (char *)(msg_entry->ptr);    
+    session->write_pos = 0;
+    if (msg_entry->ptr->author != session->fd)
 
-            session->write_size = msg_size(msg_entry->ptr);
-        else 
-            session->write_size = 0;
-            
-        printf("fd %d, msg offset%d\n",session->fd, msg_info->msg_offset);
-    // }
-    // printf("read to write %.*s\n",(int)session->write_size, session->write_buf + session->write_pos);
+        session->write_size = msg_size(msg_entry->ptr);
+    else 
+        session->write_size = 0;
+
+    printf("fd %d, msg offset%d\n",session->fd, msg_info->msg_offset);
     pthread_mutex_unlock(msg_info->lock);
-
-    // LOGD("end %s\n", __FUNCTION__);
 
     return WCB_OK;
 }

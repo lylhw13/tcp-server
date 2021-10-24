@@ -4,7 +4,7 @@
 
 /*
  * read
- * read a complete message
+ * read complete 
  * write
  * write complete 
  */
@@ -15,8 +15,6 @@ tcp_session_t * create_session(int fd, int epfd, server_t *serv)
     session->fd = fd;
     session->epfd = epfd;
     session->server = serv;
-    // session->read_pos = session->read_buf;
-    // session->parse_pos = session->read_buf;
 
     if (serv->add_info_size != 0) {
         session->add_info_size = serv->add_info_size;
@@ -56,10 +54,7 @@ int read_cb(tcp_session_t *session)
         return nread;
 
     session->read_pos += nread;
-    /* process request */
-    // fprintf(stdout, "thread %ld, read \n", (long)pthread_self());
     // write(STDOUT_FILENO, buf, nread);
-    // LOGD("end %s\n",  __FUNCTION__);
     return nread;
 }
 void write_cb(tcp_session_t* session)
@@ -88,7 +83,6 @@ void write_cb(tcp_session_t* session)
     // write(fd, "\n", 1);
     struct message *msg;
     msg = (struct message*)(session->write_buf);
-    // printf("fd %d,msg %.*s\n", session->fd, msg->length, msg->body);
     printf("fd %d,msg %.*s\n", session->fd, length, session->write_buf + session->write_pos);
 
     session->write_pos += nwrite;
@@ -101,11 +95,6 @@ void connect_cb(void *argus)
 {
     channel_t *channel_ptr = (channel_t *)argus;
     // LOGD("thread %ld loop address %p\n", (long)pthread_self(), channel_ptr);
-    // LOGD("befor tmp\n");
-    // char *tmp = malloc(10000);
-    // if (tmp == NULL)
-    //     error("tmp\n");
-    // LOGD("after tmp %d\n", 10000);
     int i, n, res, nread;
     int epfd, fd;
     int nr_events;
@@ -139,7 +128,6 @@ void connect_cb(void *argus)
                 /* normal read */
                 if ((nread = read_cb(events[i].data.ptr)) == 0) {
                     epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
-                    LOGD("1\n");
                     free_session(session);
                     continue;
                 }
@@ -155,7 +143,6 @@ void connect_cb(void *argus)
                             /* fall through */
                         case RCB_ERROR:
                             epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
-                            LOGD("2\n");
                             free_session(session);
                             continue;
                         default:
@@ -171,7 +158,6 @@ void connect_cb(void *argus)
                     res = write_message_cb(session);
                     if (res == WCB_ERROR) {
                         epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
-                        LOGD("3\n");
                         free_session(session);
                         continue;
                     }
@@ -187,7 +173,6 @@ void connect_cb(void *argus)
         err = pthread_mutex_trylock(&(channel_ptr->lock));
         LOGD("lock in thread\n");
         LOGD("address %p, len %d\n", channel_ptr, channel_ptr->len);
-        // sleep(5);
         if (err == EBUSY)
             continue;
         if (err != 0)
