@@ -71,11 +71,11 @@ int main(int argc, char *argv[])
     int sockfd;
     int nread;
     char buf[BUFSIZE];
-    struct message msg;
-    int body_pos;
-    struct pollfd pfds[1];
-    int num;
-    int i;
+    // struct message msg;
+    // int body_pos;
+    // struct pollfd pfds[1];
+    // int num;
+    // int i;
 
     if (argc < 3) {
         usage();
@@ -84,13 +84,15 @@ int main(int argc, char *argv[])
     host = argv[1];
     port = argv[2];
 
-    memset(&msg, 0, sizeof(msg));
-    body_pos = offsetof(struct message, body);
-    msg.signature = MESSAGE_SIGNATURE;
-    msg.version = 1.0;
+    // memset(&msg, 0, sizeof(msg));
+    // body_pos = offsetof(struct message, body);
+    // msg.signature = MESSAGE_SIGNATURE;
+    // msg.version = 1.0;
 
     sockfd = build_client(host, port);
     setnonblocking(sockfd);
+
+    readwrite(sockfd);
     
     // while((nread = read(STDIN_FILENO, buf + body_pos, BUFSIZE - body_pos)) > 0) {
     //     msg.length = nread;
@@ -99,26 +101,26 @@ int main(int argc, char *argv[])
     //     printf("nread %d, body pos %d, length %d\n", nread, body_pos,(int)msg_size(&msg));
     // }
 
-    pfds[0].fd = sockfd;
-    pfds[0].events = POLLIN | POLLOUT;
-    while (1) {
-        num = poll(pfds, 1, 0);
-        errno = 0;
-        if (num < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                continue;
-            }
-            perror("poll");
-            exit(EXIT_FAILURE);
-        }
-        for (i = 0; i< num; ++i) {
-            if (pfds[i].revents & POLLIN) {
+    // pfds[0].fd = sockfd;
+    // pfds[0].events = POLLIN | POLLOUT;
+    // while (1) {
+    //     num = poll(pfds, 1, 0);
+    //     errno = 0;
+    //     if (num < 0) {
+    //         if (errno == EAGAIN || errno == EWOULDBLOCK) {
+    //             continue;
+    //         }
+    //         perror("poll");
+    //         exit(EXIT_FAILURE);
+    //     }
+    //     for (i = 0; i< num; ++i) {
+    //         if (pfds[i].revents & POLLIN) {
 
-            }
-            if (pfds[i].revents & POLLOUT) {
-                
-            }
-        }
-    }
+    //         }
+    //         if (pfds[i].revents & POLLOUT) {
+
+    //         }
+    //     }
+    // }
     return 0;
 }

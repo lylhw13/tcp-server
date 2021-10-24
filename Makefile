@@ -16,8 +16,8 @@ all: $(PROM)
 basic.out: thread-pool.o tcp-server.o http.o connection.o basic.c
 	$(CC) $(CFLAGS) -o basic.out thread-pool.o tcp-server.o http.o connection.o basic.c $(LIBS)
 
-chat-client.out: chat.h chat-client.c
-	$(CC) $(CFLAGS) -o chat-client.out chat-client.c $(LIBS)
+chat-client.out: generic.h chat.h readwrite.c chat-client.c
+	$(CC) $(CFLAGS) -o chat-client.out readwrite.c chat-client.c $(LIBS)
 
 chat-server.out: chat.h thread-pool.o tcp-server.o http.o connection.o chat-server.c
 	$(CC) $(CFLAGS) -o chat-server.out thread-pool.o tcp-server.o http.o connection.o chat-server.c $(LIBS)

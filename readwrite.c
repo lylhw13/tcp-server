@@ -1,21 +1,23 @@
 #include "generic.h"
+#include "chat.h"
 
 #include <poll.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <sys/socket.h>
+#include <string.h>
 
 #define POLL_STDIN 0
 #define POLL_NETOUT 1
 #define POLL_NETIN 2
 #define POLL_STDOUT 3
 
-static void error(const char *str)
-{
-    perror(str);
-    exit(EXIT_FAILURE);
-}
+// static void error(const char *str)
+// {
+//     perror(str);
+//     exit(EXIT_FAILURE);
+// }
 
 void readwrite(int sockfd)
 {
@@ -25,9 +27,19 @@ void readwrite(int sockfd)
     unsigned char stdinbuf[BUFSIZE];
     unsigned char netinbuf[BUFSIZE];
     int stdinbufpos = 0;
+
     int netinbufpos = 0;
-    int i, nread, nwrite;
-    unsigned long errorcode;
+    int netinparsepos = 0;
+    int netinwritepos = 0;
+
+    int i, nread, nwrite, length, nwriteall;
+    struct message msg;
+    struct message *msg_ptr;
+    // unsigned long errorcode;
+    msg.signature = MESSAGE_SIGNATURE;
+    msg.version = 1.0;
+    int offset = offsetof(struct message, body);
+    memcpy(stdinbuf, &msg, offset);
 
     pfds[POLL_STDIN].fd = STDIN_FILENO;
     pfds[POLL_STDIN].events = POLLIN;
@@ -68,6 +80,9 @@ void readwrite(int sockfd)
         /* stdin fo stdinbuf */
         if (pfds[POLL_STDIN].revents & POLLIN && stdinbufpos < BUFSIZE)
         {
+            if (stdinbufpos < offset)
+                stdinbufpos = offset;
+
             errno = 0;
             nread = read(pfds[POLL_STDIN].fd, stdinbuf + stdinbufpos, BUFSIZE - stdinbufpos);
             if (nread == 0) {   /* end of file */
@@ -82,14 +97,14 @@ void readwrite(int sockfd)
                     exit(EXIT_FAILURE);
                 }
             }
-                    
+            msg_ptr = (struct message*)stdinbuf;
+            msg_ptr->length = nread;
             stdinbufpos += nread;
-
-            if (stdinbufpos > 0)
+            
+            if (nread > 0) {
                 pfds[POLL_NETOUT].events = POLLOUT;
-
-            if (stdinbufpos == BUFSIZE)
                 pfds[POLL_STDIN].events = 0;
+            }
         }
 
         /* netout from stdinbuf */
@@ -109,11 +124,10 @@ void readwrite(int sockfd)
             stdinbufpos -= nwrite;
             memmove(stdinbuf, stdinbuf + nwrite, stdinbufpos);
 
-            if (stdinbufpos < BUFSIZE)
-                pfds[POLL_STDIN].events = POLLIN;
-
-            if (stdinbufpos == 0) 
+            if (stdinbufpos == 0) {
                 pfds[POLL_NETOUT].events = 0;
+                pfds[POLL_STDIN].events = POLLIN;
+            }
         }
 
         /* netin to netinbuf */
@@ -121,6 +135,7 @@ void readwrite(int sockfd)
         {
             errno = 0;
             nread = read(pfds[POLL_NETIN].fd, netinbuf + netinbufpos, BUFSIZE - netinbufpos);
+            
             if (nread == 0) {   /* connection close */
                 pfds[POLL_NETIN].fd = -1;
                 continue;
@@ -135,19 +150,43 @@ void readwrite(int sockfd)
             }
 
             netinbufpos += nread;
+            if (netinbufpos < offset)
+                continue;
 
-            if (netinbufpos > 0)
+
+            msg_ptr = (struct message *)netinbuf;
+            if (msg_ptr->signature != MESSAGE_SIGNATURE) 
+                error("error message signature\n");
+            
+
+            if (msg_ptr->version != MESSAGE_VERSION) 
+                error("error message version\n");
+            
+            length = msg_size(msg_ptr);
+
+            printf("netinpos %d, length %d\n", netinbufpos, length);
+
+            if (length > BUFSIZE)
+                error("too large message\n");
+            
+            if (length > netinbufpos)
+                continue;
+
+            netinparsepos = length;
+            netinwritepos = offset;
+            
+            if (netinparsepos > 0)
                 pfds[POLL_STDOUT].events = POLLOUT;
 
-            if (netinbufpos == BUFSIZE)
+            if (netinbufpos == BUFSIZE || netinparsepos != 0)
                 pfds[POLL_NETIN].events = 0;
         }
 
         /* stdout from netinbuf */
-        if (pfds[POLL_STDOUT].revents & POLLOUT && netinbufpos > 0)
+        if (pfds[POLL_STDOUT].revents & POLLOUT && netinparsepos > netinwritepos)
         {
             errno = 0;
-            nwrite = write(pfds[POLL_STDOUT].fd, netinbuf, netinbufpos);
+            nwrite = write(pfds[POLL_STDOUT].fd, netinbuf + netinwritepos, netinparsepos - netinwritepos);
             if (nwrite < 0) {
                 if (errno == EAGAIN)
                     continue;
@@ -157,15 +196,20 @@ void readwrite(int sockfd)
                 }
             }
 
+            // printf("write %d\n", nwrite);
+
             /* write for next time */
-            netinbufpos -= nwrite;
-            memmove(netinbuf, netinbuf + nwrite, netinbufpos);
+            netinwritepos += nwrite;
+            if (netinwritepos == netinparsepos) {
+                memmove(netinbuf, netinbuf + netinparsepos, netinbufpos - netinparsepos);
+                netinbufpos -= netinparsepos;
+                netinparsepos = 0;
+            }
 
-            if (netinbufpos < BUFSIZE)
-                pfds[POLL_NETIN].events = POLLIN;
-
-            if (netinbufpos == 0)
+            if (netinparsepos == 0) {
                 pfds[POLL_STDOUT].events = 0;
+                pfds[POLL_NETIN].events = POLLIN;
+            }
         }
     }
 
