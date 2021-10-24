@@ -13,6 +13,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+void setnonblocking(int fd)
+{
+    int flags;
+    if (-1 == (flags = fcntl(fd, F_GETFL, 0)))
+        return;
+    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    return;
+}
 
 int create_and_bind(const char* port) 
 {
@@ -51,4 +59,34 @@ int create_and_bind(const char* port)
         error("Could not bind");
     }
     return listenfd;
+}
+
+int build_client(const char *host, const char *port)
+{
+    struct addrinfo hints, *result, *rp;
+    int ecode, sockfd;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+
+    if ((ecode = getaddrinfo(host, port, &hints, &result))) {
+        error("client getaddrinfo\n");
+    }
+
+    for (rp = result; rp != NULL; rp = rp->ai_next) {
+        sockfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        if (sockfd < 0)
+            continue;
+
+        if (connect(sockfd, rp->ai_addr, rp->ai_addrlen) == 0)
+            break;
+
+        close(sockfd);
+    }
+    freeaddrinfo(result);
+    if (rp == NULL)
+        error("could not connect\n");
+
+    return sockfd;
 }

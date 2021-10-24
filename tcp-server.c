@@ -27,14 +27,14 @@ struct fd_entry {
 };
 STAILQ_HEAD(fdqueue, fd_entry);
 
-void setnonblocking(int fd)
-{
-    int flags;
-    if (-1 == (flags = fcntl(fd, F_GETFL, 0)))
-        return;
-    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-    return;
-}
+// void setnonblocking(int fd)
+// {
+//     int flags;
+//     if (-1 == (flags = fcntl(fd, F_GETFL, 0)))
+//         return;
+//     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+//     return;
+// }
 
 int add_fd_channel_queue(channel_t *channel_arr, int idx, int connfd, int conn_loop_num)
 {

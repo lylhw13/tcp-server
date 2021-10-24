@@ -35,9 +35,7 @@ void readwrite(int sockfd)
     int i, nread, nwrite, length, nwriteall;
     struct message msg;
     struct message *msg_ptr;
-    // unsigned long errorcode;
     msg.signature = MESSAGE_SIGNATURE;
-    // msg.version = 1.0;
     int offset = offsetof(struct message, body);
     memcpy(stdinbuf, &msg, offset);
 
@@ -92,10 +90,9 @@ void readwrite(int sockfd)
             if (nread < 0) {
                 if (errno == EAGAIN)
                     continue;
-                else {
-                    perror("stdin read");
-                    exit(EXIT_FAILURE);
-                }
+                else 
+                    error("stdin read");
+
             }
             msg_ptr = (struct message*)stdinbuf;
             msg_ptr->length = nread;
@@ -115,10 +112,9 @@ void readwrite(int sockfd)
             if (nwrite < 0) {
                 if (errno == EAGAIN)
                     continue;
-                else {
-                    perror("netout write");
-                    exit(EXIT_FAILURE);
-                }
+                else 
+                    error("netout write");
+
             }
 
             stdinbufpos -= nwrite;
@@ -143,10 +139,9 @@ void readwrite(int sockfd)
             if (nread < 0) {
                 if (errno == EAGAIN)
                     continue;
-                else {
-                    perror("netin read");
-                    exit(EXIT_FAILURE);
-                }
+                else 
+                    error("netin read");
+
             }
 
             netinbufpos += nread;
@@ -188,10 +183,8 @@ void readwrite(int sockfd)
                 if (nwrite < 0) {
                     if (errno == EAGAIN)
                         continue;
-                    else {
-                        perror("stdout write");
-                        exit(EXIT_FAILURE);
-                    }
+                    else 
+                        error("stdout write");
                 }
                 netinwritepos += nwrite;
             }

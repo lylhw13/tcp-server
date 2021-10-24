@@ -10,8 +10,6 @@
 #define MESSAGE_PARTIAL     RCB_NEED_MORE
 #define MESSAGE_LOCK_AGAIN  RCB_AGAIN
 
-// struct message *gen_message()
-
 void print_msg(struct message_queue*head)
 {
     LOGD("----%s\n", __FUNCTION__);
@@ -48,16 +46,14 @@ int on_read_message_complete(tcp_session_t *session)
         if (length > (session->read_pos - session->parse_pos))
             return MESSAGE_PARTIAL;
 
-        struct message *msg = (struct message *)malloc(length);
-        if (msg == NULL)
-            error("malloc message\n");
+        struct message *msg = (struct message *)xmalloc(length);
+
         memcpy(msg, session->read_buf + session->parse_pos, length);
 
         session->parse_pos += length;
 
-        struct message_entry *msg_entry = (struct message_entry *)malloc(sizeof(struct message_entry));
-        if (msg_entry == NULL)
-            error("malloc message_entry\n");
+        struct message_entry *msg_entry = (struct message_entry *)xmalloc(sizeof(struct message_entry));
+
         msg_entry->ptr = msg;
         msg->ptr = msg_entry;
         msg->author = session->fd;
@@ -130,19 +126,12 @@ int on_write_message_complete(tcp_session_t *session)
     }
 
     // /* filter the message */
-    // // while (msg_entry->ptr->author == session->fd){
-    // //     msg_entry = STAILQ_NEXT(msg_entry, entries);
-    // //     if (msg_entry == NULL) {
-    // //         pthread_mutex_unlock(msg_info->lock);
-    // //         return WCB_AGAIN;
-    // //     }
-    // //     msg_info->msg_offset++;
-    // // }
     // printf("author %d, fd %d, body %s\n", msg_entry->ptr->author, session->fd, (char *)(msg_entry->ptr->body));
     session->write_buf = (char *)(msg_entry->ptr);    
     session->write_pos = 0;
-    if (msg_entry->ptr->author != session->fd)
 
+    /* don't write to self */
+    if (msg_entry->ptr->author != session->fd)  
         session->write_size = msg_size(msg_entry->ptr);
     else 
         session->write_size = 0;
@@ -180,12 +169,10 @@ int main(int argc, char *argv[])
     chat_msgs.lock = &lock;
     chat_msgs.message_queue_head = &message_queue_head;
     chat_msgs.msg_total_num = &msg_total_num;
-    chat_msgs.msg_offset = 0;
+    chat_msgs.msg_offset = 0;   /* this value is local */
 
     serv->additional_info = &chat_msgs;
     serv->add_info_size = sizeof(chat_msgs);
-
-
 
     server_start(serv);
     server_run(serv);

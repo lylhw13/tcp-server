@@ -29,16 +29,7 @@ typedef struct channel
     connection_t *tail;
 } channel_t;
 
-static void error(const char *str)
-{
-    perror(str);
-    exit(EXIT_FAILURE);
-}
 
-extern int create_and_bind(const char* port);
-extern void connect_cb(void *argus);
-
-#define LOGD(...) fprintf(stderr, __VA_ARGS__)
 
 typedef struct tcp_session {
     int fd;
@@ -98,5 +89,29 @@ extern void server_start(server_t *);
 extern void server_run(server_t *);
 extern void server_stop(server_t *);    /* anthoer thread may use this */
 extern void server_destory(server_t *);
+
+extern void setnonblocking(int fd);
+extern int create_and_bind(const char* port);
+extern int build_client(const char*host, const char*port);
+extern void connect_cb(void *argus);
+
+#define LOGD(...) fprintf(stderr, __VA_ARGS__)
+
+static void error(const char *str)
+{
+    perror(str);
+    exit(EXIT_FAILURE);
+}
+
+static void *xmalloc(size_t bytes)
+{
+    void *ptr;
+    ptr = malloc(bytes);
+    if (ptr == NULL) {
+        perror("xmalloc");
+        exit(EXIT_FAILURE);
+    }
+    return ptr;
+}
 
 #endif
