@@ -58,8 +58,8 @@ int read_cb(tcp_session_t *session)
     session->read_pos += nread;
     /* process request */
     // fprintf(stdout, "thread %ld, read \n", (long)pthread_self());
-    write(STDOUT_FILENO, buf, nread);
-    LOGD("end %s\n",  __FUNCTION__);
+    // write(STDOUT_FILENO, buf, nread);
+    // LOGD("end %s\n",  __FUNCTION__);
     return nread;
 }
 void write_cb(tcp_session_t* session)
@@ -75,7 +75,7 @@ void write_cb(tcp_session_t* session)
     length = session->write_size - session->write_pos;
     if (length == 0)
         return;
-    LOGD("begint to write\n");
+    // LOGD("begint to write\n");
     errno = 0;
     nwrite = write(fd, session->write_buf + session->write_pos, length);
     // write(fd, "\n", 1);
@@ -88,7 +88,7 @@ void write_cb(tcp_session_t* session)
     // write(fd, "\n", 1);
     struct message *msg;
     msg = (struct message*)(session->write_buf);
-    printf("fd %d,msg %.*s\n", session->fd, msg->length, msg->body);
+    // printf("fd %d,msg %.*s\n", session->fd, msg->length, msg->body);
     printf("fd %d,msg %.*s\n", session->fd, length, session->write_buf + session->write_pos);
 
     session->write_pos += nwrite;
@@ -139,6 +139,7 @@ void connect_cb(void *argus)
                 /* normal read */
                 if ((nread = read_cb(events[i].data.ptr)) == 0) {
                     epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
+                    LOGD("1\n");
                     free_session(session);
                     continue;
                 }
@@ -154,9 +155,9 @@ void connect_cb(void *argus)
                             /* fall through */
                         case RCB_ERROR:
                             epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
+                            LOGD("2\n");
                             free_session(session);
                             continue;
-                            break;
                         default:
                             break;
                     }
@@ -170,6 +171,7 @@ void connect_cb(void *argus)
                     res = write_message_cb(session);
                     if (res == WCB_ERROR) {
                         epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
+                        LOGD("3\n");
                         free_session(session);
                         continue;
                     }

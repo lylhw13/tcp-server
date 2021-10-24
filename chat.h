@@ -12,8 +12,8 @@
 
 struct message{
     unsigned int signature;
-    unsigned int version;
-    // unsigned int author;
+    // unsigned int version;
+    unsigned int author;
     struct message_entry *ptr;
     unsigned int length;
     unsigned char body[0];
