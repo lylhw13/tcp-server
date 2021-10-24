@@ -31,7 +31,7 @@ int on_read_message_complete(tcp_session_t *session)
     struct message *msg_begin;
     chat_messages_queue_t *msg_info;
 
-    msg_begin = (struct message *)(*session->read_buf);
+    msg_begin = (struct message *)session->read_buf;
     msg_info = (chat_messages_queue_t*)session->additional_info;
     offset = offsetof(struct message, body);
 
@@ -54,16 +54,18 @@ int on_read_message_complete(tcp_session_t *session)
         if (length > (session->read_pos - session->parse_pos))
             return MESSAGE_PARTIAL;
 
-        struct message *ptr = (struct message *)malloc(length);
-        if (ptr == NULL)
+        struct message *msg = (struct message *)malloc(length);
+        if (msg == NULL)
             error("malloc message\n");
-        memcpy(ptr, session->read_buf + session->parse_pos, length);
+        memcpy(msg, session->read_buf + session->parse_pos, length);
         session->parse_pos += length;
 
         struct message_entry *msg_entry = (struct message_entry *)malloc(sizeof(struct message_entry));
         if (msg_entry == NULL)
             error("malloc message_entry\n");
-        msg_entry->ptr = ptr;
+        msg_entry->ptr = msg;
+        msg->ptr = msg_entry;
+        
         
         // LOGD("before lock\n");
         err = pthread_mutex_trylock(msg_info->lock);
@@ -131,17 +133,18 @@ int on_write_message_complete(tcp_session_t *session)
         msg_entry = STAILQ_FIRST(msg_info->message_queue_head);
     }
     else {
-        msg_entry = (struct message_entry *)session->write_buf;
-        msg_entry_next = STAILQ_NEXT(msg_entry, entries);
-        if (msg_entry_next == NULL) {
+        msg = (struct message*)(session->write_buf);
+        msg_entry = (struct message_entry *)(msg->ptr);
+        msg_entry = STAILQ_NEXT(msg_entry, entries);
+        if (msg_entry == NULL) {
             pthread_mutex_unlock(msg_info->lock);
             return WCB_AGAIN;
         }
-        msg_entry = msg_entry_next;
+        // msg_entry = msg_entry_next;
     }
 
     // msg = msg_entry;
-    session->write_buf = (char *)(msg_entry);    
+    session->write_buf = (char *)(msg_entry->ptr);    
     session->write_pos = 0;
     session->write_size = msg_size(msg_entry->ptr);
     msg_info->msg_offset++;

@@ -40,7 +40,7 @@ int read_cb(tcp_session_t *session)
     // LOGD("%s\n", __FUNCTION__);
     int nread;
     int fd = session->fd;
-    char *buf = *session->read_buf;
+    char *buf = session->read_buf;
     struct epoll_event ev;
 
     errno = 0;
