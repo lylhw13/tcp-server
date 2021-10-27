@@ -1,5 +1,5 @@
 #include "generic.h"
-// #include "chat.h"
+#include "chat.h"
 
 #include <poll.h>
 #include <stdlib.h>
@@ -13,26 +13,20 @@
 #define POLL_NETIN 2
 #define POLL_STDOUT 3
 
-// static void error(const char *str)
-// {
-//     perror(str);
-//     exit(EXIT_FAILURE);
-// }
-
 void readwrite(int sockfd)
 {
     struct pollfd pfds[4];
     int numfds;
     int timeout = 0;
+    int i, nread, nwrite, length;
+
     unsigned char stdinbuf[BUFSIZE];
     unsigned char netinbuf[BUFSIZE];
-    int stdinbufpos = 0;
+    int stdinbufpos = 0;    /* pos in stdinbuf */
+    int netinbufpos = 0;    /* read pos in netinbuf */
+    int netinparsepos = 0;  /* parse pos in netinbuf */
+    int netinwritepos = 0;  /* write pos in netinbuf */
 
-    int netinbufpos = 0;
-    int netinparsepos = 0;
-    int netinwritepos = 0;
-
-    int i, nread, nwrite, length, nwriteall;
     struct message msg;
     struct message *msg_ptr;
     msg.signature = MESSAGE_SIGNATURE;
@@ -156,7 +150,6 @@ void readwrite(int sockfd)
         /* stdout from netinbuf */
         if (pfds[POLL_STDOUT].revents & POLLOUT && netinbufpos > 0)
         {
-            // netinwritepos = netinparsepos;
             while (1) {
                 if (netinwritepos == netinparsepos) {
 

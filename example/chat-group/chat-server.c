@@ -1,4 +1,4 @@
-#include "../../generic.h"
+#include "generic.h"
 #include "chat.h"
 #include <string.h>
 
@@ -20,6 +20,14 @@ void print_msg(struct message_queue*head)
     }
     LOGD("----end %s\n", __FUNCTION__);
     return;
+}
+
+static void usage(const char *program)
+{
+    fprintf(stderr, 
+        "usage: %s port thread-num\n"
+        "      thread-num should greater than 0\n", program);
+    exit(EXIT_FAILURE);
 }
 
 int on_read_message_complete(tcp_session_t *session)
@@ -84,7 +92,7 @@ int on_write_message_complete(tcp_session_t *session)
 {
     int err;
     struct message *msg;
-    struct message_entry *msg_entry, *msg_entry_next;
+    struct message_entry *msg_entry;
     struct chat_messages_queue *msg_info;
 
     /* last write has not complete */
@@ -125,8 +133,6 @@ int on_write_message_complete(tcp_session_t *session)
         msg_info->msg_offset++;
     }
 
-    // /* filter the message */
-    // printf("author %d, fd %d, body %s\n", msg_entry->ptr->author, session->fd, (char *)(msg_entry->ptr->body));
     session->write_buf = (char *)(msg_entry->ptr);    
     session->write_pos = 0;
 
@@ -142,26 +148,31 @@ int on_write_message_complete(tcp_session_t *session)
     return WCB_OK;
 }
 
-
-
 int main(int argc, char *argv[])
 {
+    char *port;
+    int conn_loop_num, msg_total_num;
     server_t *serv;
-    char *host = "127.0.0.1";
-    char *port = "33333";
-    int conn_loop_num = 2;
-    chat_messages_queue_t chat_msgs;
-
     pthread_mutex_t lock;
-    int msg_total_num;
+    chat_messages_queue_t chat_msgs;
     struct message_queue message_queue_head;
 
+    if (argc < 3)
+        usage(argv[0]);
+
+    port = argv[1];
+    conn_loop_num = atoi(argv[2]);
+    
+    if (conn_loop_num == 0)
+        usage(argv[0]);
+
+    /* initialize */
     pthread_mutex_init(&lock, NULL);
     msg_total_num = 0;
-    STAILQ_INIT(&message_queue_head);   /* message queue for group */
+    STAILQ_INIT(&message_queue_head);
 
 
-    serv = server_init(host, port, conn_loop_num);
+    serv = server_init(port, conn_loop_num);
 
     serv->read_complete_cb = on_read_message_complete;
     serv->write_complete_cb = on_write_message_complete;

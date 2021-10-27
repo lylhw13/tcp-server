@@ -12,6 +12,21 @@
 #define MAX_EVENTS 64
 #define BUFSIZE 1024
 
+/* return value for on_read_message_fun */
+#define RCB_ERROR -1
+#define RCB_OK 0
+#define RCB_NEED_MORE 1
+#define RCB_AGAIN 2
+
+/* return value for on_write_message_fun */
+#define WCB_ERROR -1
+#define WCB_OK 0
+#define WCB_AGAIN 1
+
+/* loop state */
+#define LOOP_RUN 1
+#define LOOP_STOP 0
+
 typedef struct connection
 {
     int fd;
@@ -28,8 +43,6 @@ typedef struct channel
     connection_t *head;
     connection_t *tail;
 } channel_t;
-
-
 
 typedef struct tcp_session {
     int fd;
@@ -56,19 +69,6 @@ typedef struct tcp_session {
 
 typedef int (*on_read_complete_fun)(tcp_session_t *seesion);
 typedef int (*on_write_complete_fun)(tcp_session_t *seesion);
-
-/* return value for on_read_message_fun */
-#define RCB_ERROR -1
-#define RCB_OK 0
-#define RCB_NEED_MORE 1
-#define RCB_AGAIN 2
-
-#define WCB_ERROR -1
-#define WCB_OK 0
-#define WCB_AGAIN 1
-
-#define LOOP_RUN 1
-#define LOOP_STOP 0
 
 typedef struct server {
     int listenfd;

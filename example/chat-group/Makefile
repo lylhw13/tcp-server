@@ -8,11 +8,14 @@ LIBS = -lpthread
 SRCDIR = $(INC_DIR)
 SOURCE = $(wildcard  $(SRCDIR)*.c)
 
-PROM = basic.out
+PROM = chat-client.out chat-server.out
 
 all: $(PROM)
 
-basic.out: $(SOURCE) basic.c
+chat-client.out: $(SOURCE) readwrite.c chat-client.c
+	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
+
+chat-server.out: $(SOURCE) chat-server.c
 	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
 
 clean:

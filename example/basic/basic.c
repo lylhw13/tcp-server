@@ -9,7 +9,7 @@ void usage(const char *program)
     exit(EXIT_FAILURE);
 }
 
-int on_write_message_complete(tcp_session_t *session)
+int on_write_complete(tcp_session_t *session)
 {
     if (session->write_buf == NULL) {
         session->write_buf = session->read_buf;
@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
 
     serv = server_init(port, conn_loop_num);
 
-    serv->write_complete_cb = on_write_message_complete;
+    serv->write_complete_cb = on_write_complete;
 
     server_start(serv);
     server_run(serv);

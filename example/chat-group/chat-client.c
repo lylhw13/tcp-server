@@ -1,5 +1,5 @@
 #include "chat.h"
-#include "../../generic.h"
+#include "generic.h"
 
 #include <netdb.h>
 #include <string.h>
@@ -10,11 +10,15 @@
 #include <stddef.h>
 #include <fcntl.h>
 
-void usage(void)
+/*
+ * the client has two mode: client mode or server mode
+ */
+
+static void usage(const char *program)
 {
     fprintf(stderr,
-        "clien state:  chat_client addr port\n"
-        "server state: chat_client port\n");
+        "client mode: %s addr port\n"
+        "server mode: %s port\n", program, program);
     exit(EXIT_FAILURE);
 }
 
@@ -56,10 +60,9 @@ int main(int argc, char *argv[])
     }
 
     if (sockfd < 0)
-        usage();
+        usage(argv[0]);
 
     setnonblocking(sockfd);
-
     readwrite(sockfd);
     
     return 0;
