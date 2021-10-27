@@ -1,4 +1,6 @@
 #include "generic.h"
+#include "tree.h"
+#include <sys/time.h>
 #include <string.h>
 
 /*
@@ -7,6 +9,21 @@
  * write
  * write complete 
  */
+
+int compare(struct tcp_session *t1, struct tcp_session *t2)
+{
+    if (timercmp(&(t1->ev_timeout), &(t2->ev_timeout), <))
+        return -1;
+    else if (timercmp(&(t1->ev_timeout), &(t2->ev_timeout), >))
+        return 1;
+
+    return 0;
+}
+
+RB_HEAD(event_tree, tcp_session) time_tree = RB_INITIALIZER(&time_tree);
+RB_PROTOTYPE(event_tree, tcp_session, entry, compare);
+RB_GENERATE(event_tree, tcp_session, entry, compare);
+struct timeval validity_period = {5,0};
 
 tcp_session_t * create_session(int fd, int epfd, server_t *serv)
 {
@@ -94,6 +111,7 @@ void connect_cb(void *argus)
     on_read_complete_fun parse_message_cb;
     on_write_complete_fun write_message_cb;
     struct epoll_event ev;
+    static struct timeval event_tv;
 
     serv = channel_ptr->serv;
     epfd = epoll_create1(0);
@@ -182,6 +200,9 @@ void connect_cb(void *argus)
         ev.events = EPOLLIN | EPOLLOUT;
         if (epoll_ctl(epfd, EPOLL_CTL_ADD, session_new->fd, &ev) != 0)
             error("add fd to epoll in thread");
+
+        gettimeofday(&(session_new->ev_timeout), NULL);
+        timeradd(&(session_new->ev_timeout), &validity_period, &(session_new->ev_timeout));
         free(conn_ptr);
     }     /* end while */
 }

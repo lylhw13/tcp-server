@@ -2,12 +2,14 @@
 #define GENERIC_H
 
 #include "thread-pool.h"
+#include "tree.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/epoll.h>
 #include <errno.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 #define MAX_EVENTS 64
 #define BUFSIZE 4096
@@ -45,8 +47,12 @@ typedef struct channel
 } channel_t;
 
 typedef struct tcp_session {
+    RB_ENTRY(tcp_session) entry;
     int fd;
     int epfd;
+
+    struct timeval ev_timeout;
+
     /* for read */
     char read_buf[BUFSIZE];
     int read_pos;     /* last read end pos */
@@ -103,6 +109,9 @@ extern void connect_cb(void *argus);
 void error(const char *str);
 void *xmalloc(size_t bytes);
 
-
+/* timeout */
+extern int compare(struct tcp_session *t1, struct tcp_session *t2);
+extern void timeout_insert(struct tcp_session *ts);
+extern void timeout_process(void);
 
 #endif
