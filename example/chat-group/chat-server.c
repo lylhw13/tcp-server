@@ -75,7 +75,7 @@ int on_read_message_complete(tcp_session_t *session)
         (*(msg_info->msg_total_num))++;
         pthread_mutex_unlock(msg_info->lock);
 
-        print_msg(msg_info->message_queue_head);
+        /* print_msg(msg_info->message_queue_head); */
         /* shift buffer */
         memmove(session->read_buf, session->read_buf + session->parse_pos, session->read_pos - session->parse_pos);
         session->read_pos -= session->parse_pos;
@@ -142,7 +142,7 @@ int on_write_message_complete(tcp_session_t *session)
     else 
         session->write_size = 0;
 
-    printf("fd %d, msg offset%d\n",session->fd, msg_info->msg_offset);
+    /* printf("fd %d, msg offset%d\n",session->fd, msg_info->msg_offset); */
     pthread_mutex_unlock(msg_info->lock);
 
     return WCB_OK;

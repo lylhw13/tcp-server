@@ -15,11 +15,6 @@
 #include <fcntl.h>
 #include <sys/queue.h>
 
-typedef struct connfd_again {
-    int fd;
-    int idx;
-    struct connfd_again *next;
-} connfd_again_t;
 
 struct fd_entry {
     int fd;
@@ -27,18 +22,9 @@ struct fd_entry {
 };
 STAILQ_HEAD(fdqueue, fd_entry);
 
-// void setnonblocking(int fd)
-// {
-//     int flags;
-//     if (-1 == (flags = fcntl(fd, F_GETFL, 0)))
-//         return;
-//     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-//     return;
-// }
 
 int add_fd_channel_queue(channel_t *channel_arr, int idx, int connfd, int conn_loop_num)
 {
-    // LOGD("try to add fd %d idx %d conn_loop_num %d\n", connfd, idx, conn_loop_num);
     int err;
     channel_t *channel_ptr = &channel_arr[idx % conn_loop_num];
     err = pthread_mutex_trylock(&(channel_ptr->lock));
@@ -69,15 +55,14 @@ int add_fd_channel_queue(channel_t *channel_arr, int idx, int connfd, int conn_l
 
 server_t *server_init(const char* port, int conn_loop_num)
 {
-    int listenfd;
+    int i, listenfd;
     server_t *serv;
-    int i;
+    channel_t *channel_arr;
+    threadpool_t *tp;
 
     serv = (server_t*)xmalloc(sizeof(server_t));
     memset(serv, 0, sizeof(server_t));
     serv->conn_loop_num = conn_loop_num;
-    // serv->read_complete_cb = NULL;
-    // serv->write_complete_cb = NULL;
 
     /* prepare listen socket */
     listenfd = create_and_bind(port);
@@ -88,17 +73,17 @@ server_t *server_init(const char* port, int conn_loop_num)
     if (listen(listenfd, SOMAXCONN) < 0)
         error("listen");
     setnonblocking(listenfd);
+    signal(SIGPIPE, SIG_IGN);
     serv->listenfd = listenfd;
 
     /* threadpool things */
-    channel_t *channel_arr = (channel_t *)calloc(conn_loop_num, sizeof(channel_t));
+    channel_arr = (channel_t *)calloc(conn_loop_num, sizeof(channel_t));
     if (channel_arr == NULL)
         error("calloc channel_arr");
     serv->channel_arr = channel_arr;
     for (i = 0; i< conn_loop_num; ++i)
         channel_arr[i].serv = serv;
 
-    threadpool_t *tp;
     tp = threadpool_init(conn_loop_num, fix_num);
     if (tp == NULL)
         error("threadpool_init\n");
@@ -156,7 +141,6 @@ void server_run(server_t * serv)
             errno = 0;
             connfd = accept(serv->listenfd, (struct sockaddr *)&cliaddr, &cliaddr_len);
             if (connfd < 0 && errno != EWOULDBLOCK) {
-                // threadpool_destory(tp, shutdown_waitall);
                 perror("accept");
                 goto out;
             }

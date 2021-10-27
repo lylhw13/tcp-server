@@ -38,7 +38,6 @@ int read_cb(tcp_session_t *session)
     int nread;
     int fd = session->fd;
     char *buf = session->read_buf;
-    // struct epoll_event ev;
 
     errno = 0;
     nread = read(fd, buf + session->read_pos, BUFSIZE - session->read_pos);
@@ -53,7 +52,6 @@ int read_cb(tcp_session_t *session)
         return nread;
 
     session->read_pos += nread;
-    // write(STDOUT_FILENO, buf, nread);
     return nread;
 }
 void write_cb(tcp_session_t* session)
@@ -69,23 +67,16 @@ void write_cb(tcp_session_t* session)
     length = session->write_size - session->write_pos;
     if (length == 0)
         return;
-    // LOGD("begint to write\n");
     errno = 0;
     nwrite = write(fd, session->write_buf + session->write_pos, length);
-    // write(fd, "\n", 1);
     if (nwrite < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return;
 
         error("write in write_cb\n");
     }
-    // write(fd, "\n", 1);
-    // struct message *msg;
-    // msg = (struct message*)(session->write_buf);
-    // printf("fd %d,msg %.*s\n", session->fd, length, session->write_buf + session->write_pos);
 
     session->write_pos += nwrite;
-    LOGD("end %s\n", __FUNCTION__);
     return ;
 }
 
@@ -103,7 +94,6 @@ void connect_cb(void *argus)
     on_read_complete_fun parse_message_cb;
     on_write_complete_fun write_message_cb;
     struct epoll_event ev;
-    // char *tmp;
 
     serv = channel_ptr->serv;
     epfd = epoll_create1(0);
@@ -187,15 +177,12 @@ void connect_cb(void *argus)
         LOGD("loop get fd %d\n", conn_ptr->fd);
         pthread_mutex_unlock(&(channel_ptr->lock));
 
-        /* add event */
-
         tcp_session_t* session_new = create_session(conn_ptr->fd, epfd, serv);
         ev.data.ptr = session_new;
         ev.events = EPOLLIN | EPOLLOUT;
         if (epoll_ctl(epfd, EPOLL_CTL_ADD, session_new->fd, &ev) != 0)
             error("add fd to epoll in thread");
         free(conn_ptr);
-        LOGD("add epoll\n");
     }     /* end while */
 }
 

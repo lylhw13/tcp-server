@@ -1,12 +1,17 @@
 INC_DIR = ../../src/
 
-CFLAGS = -g -Wall -I$(INC_DIR)
+CFLAGS = -Wall -I$(INC_DIR)
 CC = gcc
+
+ifdef DEBUG
+CFLAGS += -g -DDEBUG
+endif
 
 LIBS = -lpthread
 
 SRCDIR = $(INC_DIR)
 SOURCE = $(wildcard  $(SRCDIR)*.c)
+
 
 PROM = basic.out
 

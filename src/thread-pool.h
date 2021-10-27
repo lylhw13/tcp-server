@@ -72,7 +72,11 @@ int threadpool_add_job(threadpool_t *tp, job_t *job);
 void threadpool_destory(threadpool_t *tp, threadpool_shutdown_t shutdown_type);
 void threadpool_change_target_workernum(threadpool_t *tp, int target);
 
+#ifdef DEBUG
 #define LOGD(...) fprintf(stderr, __VA_ARGS__)
+#else
+#define LOGD(...) 
+#endif
 
 #endif
 

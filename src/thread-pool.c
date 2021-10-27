@@ -53,7 +53,7 @@ void* threadpool_do_job(void * threadpool)
                 }
             }
         }
-        printf("jobnum is %d, thread_num is %d\n",tp->jobsnum, tp->workernum);
+        LOGD("jobnum is %d, thread_num is %d\n",tp->jobsnum, tp->workernum);
         pthread_mutex_unlock(&(tp->worker_lock));
         if (tp->jobsnum == 0)
             continue;
@@ -67,7 +67,6 @@ void* threadpool_do_job(void * threadpool)
 
         (*((*job).jobfun))((*job).args);
 
-        // fprintf(stderr, "free %d\n", *((int*)(job->args)));
         /* free memory */
         if (job->args)  /* this is shoud be malloc variable */
             free(job->args);
@@ -93,7 +92,7 @@ void* threadpool_do_job(void * threadpool)
     free(curr);
     tp->workernum--;
     tp->last_workerchange = time(NULL);
-    LOGD("remove a worker, leave %d\n", tp->workernum),
+    LOGD("remove a worker, leave %d\n", tp->workernum);
     pthread_mutex_unlock(&(tp->worker_lock));
     pthread_mutex_unlock(&(tp->job_lock));
 

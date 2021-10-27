@@ -31,7 +31,7 @@ int build_server(const char *port)
 
     listenfd = create_and_bind(port);
 
-    if (listen(listenfd, 64) < 0)
+    if (listen(listenfd, SOMAXCONN) < 0)
         error("listen");
     for (;;) {
         cliaddr_len= sizeof(cliaddr);

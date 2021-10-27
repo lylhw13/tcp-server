@@ -103,6 +103,6 @@ extern void connect_cb(void *argus);
 void error(const char *str);
 void *xmalloc(size_t bytes);
 
-#define LOGD(...) fprintf(stderr, __VA_ARGS__)
+
 
 #endif
