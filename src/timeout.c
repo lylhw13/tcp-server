@@ -1,5 +1,6 @@
-#include "tree.h"
 #include "generic.h"
+#include "tree.h"
+
 #include <sys/time.h>
 
 int compare(struct tcp_session *t1, struct tcp_session *t2)
@@ -12,9 +13,9 @@ int compare(struct tcp_session *t1, struct tcp_session *t2)
     return 0;
 }
 
-// RB_HEAD(event_tree, tcp_session) time_tree = RB_INITIALIZER(&time_tree);
-// RB_PROTOTYPE(event_tree, tcp_session, entry, compare);
-// RB_GENERATE(event_tree, tcp_session, entry, compare);
+RB_HEAD(event_tree, tcp_session) time_tree = RB_INITIALIZER(&time_tree);
+RB_PROTOTYPE(event_tree, tcp_session, entry, compare);
+RB_GENERATE(event_tree, tcp_session, entry, compare);
 
 
 void timeout_insert(struct tcp_session *ts)
@@ -69,5 +70,7 @@ void timeout_set(struct tcp_session *ts)
 
 void timeout_update(struct tcp_session *ts)
 {
-
+    RB_REMOVE(event_tree, &time_tree, ts);
+    timeout_set(ts);
+    timeout_insert(ts);
 }

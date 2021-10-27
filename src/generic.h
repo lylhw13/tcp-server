@@ -110,8 +110,12 @@ void error(const char *str);
 void *xmalloc(size_t bytes);
 
 /* timeout */
+struct timeval validity_period = {5,0}; /* 5 seconds */
 extern int compare(struct tcp_session *t1, struct tcp_session *t2);
 extern void timeout_insert(struct tcp_session *ts);
 extern void timeout_process(void);
+extern void timeout_set(struct tcp_session *ts);
+extern void timeout_update(struct tcp_session *ts);
+
 
 #endif

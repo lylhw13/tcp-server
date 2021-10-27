@@ -23,7 +23,6 @@ int compare(struct tcp_session *t1, struct tcp_session *t2)
 RB_HEAD(event_tree, tcp_session) time_tree = RB_INITIALIZER(&time_tree);
 RB_PROTOTYPE(event_tree, tcp_session, entry, compare);
 RB_GENERATE(event_tree, tcp_session, entry, compare);
-struct timeval validity_period = {5,0};
 
 tcp_session_t * create_session(int fd, int epfd, server_t *serv)
 {
