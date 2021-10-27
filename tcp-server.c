@@ -117,7 +117,7 @@ void server_run(server_t * serv)
     struct pollfd pfds[1];
     struct sockaddr_storage cliaddr;
     socklen_t cliaddr_len;
-    int listenfd, connfd;
+    int connfd;
     struct fdqueue fdqueue_head;
     STAILQ_INIT(&fdqueue_head);
 

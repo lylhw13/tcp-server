@@ -1,5 +1,5 @@
 #include "generic.h"
-#include "chat.h"
+// #include "chat.h"
 
 #include <poll.h>
 #include <stdlib.h>

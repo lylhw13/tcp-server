@@ -45,8 +45,8 @@ typedef struct tcp_session {
 
     /* for write */
     char *write_buf;
-    int write_pos;
-    int write_size;
+    int write_pos;      /* last write end pot */
+    int write_size;     /* write buf size */
     int write_buf_free_flag;    /* wheter need to free */
     struct server *server;
 

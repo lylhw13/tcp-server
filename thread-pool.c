@@ -251,7 +251,6 @@ void threadpool_destory(threadpool_t *tp, threadpool_shutdown_t shutdown_type)
 
 void threadpool_change_target_workernum(threadpool_t *tp, int target)
 {
-    int i;
     if (tp == NULL || tp->shutdown)
         return;
 

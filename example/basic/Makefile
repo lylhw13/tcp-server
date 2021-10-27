@@ -1,24 +1,21 @@
-# VPATH = src:../../
-CFLAGS = -g
+INC_DIR = ../../
+CFLAGS = -g -I$(INC_DIR)
 CC = gcc
 
 LIBS = -lpthread
 
 # SRCFOLDER
-DIR = ../..
+SRCDIR = ../..
+# VPATH = $(SRCDIR)
+SOURCE = $(wildcard  $(SRCDIR)/*.h $(SRCDIR)/*.c)
+# $(info var in $(SOURCE))
 
-PROM = basic.out #chat-client.out chat-server.out
+PROM = basic.out
 
 all: $(PROM)
 
-# basic.out: thread-pool.o tcp-server.o http.o connection.o basic.c
-# 	$(CC) $(CFLAGS) -o basic.out thread-pool.o tcp-server.o http.o connection.o basic.c $(LIBS)
-
-# basic.out: generic.h thread-pool.h thread-pool.c tcp-server.c http.c connection.c basic.c
-# 	$(CC) $(CFLAGS) -o basic.out thread-pool.c tcp-server.c http.c connection.c basic.c $(LIBS)
-
-basic.out: $(DIR)/generic.h $(DIR)/thread-pool.h $(DIR)/thread-pool.c $(DIR)/tcp-server.c $(DIR)/http.c $(DIR)/connection.c basic.c
-	$(CC) $(CFLAGS) -o basic.out $(DIR)/thread-pool.c $(DIR)/tcp-server.c $(DIR)/http.c $(DIR)/connection.c basic.c $(LIBS)
+basic.out: $(SOURCE) basic.c
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 # chat-client.out: generic.h chat.h http.o readwrite.c chat-client.c
 # 	$(CC) $(CFLAGS) -o chat-client.out http.o readwrite.c chat-client.c $(LIBS)
@@ -32,4 +29,4 @@ basic.out: $(DIR)/generic.h $(DIR)/thread-pool.h $(DIR)/thread-pool.c $(DIR)/tcp
 # thread-pool.o: thread-pool.h
 
 clean:
-	rm $(PROM) *.o
+	rm $(PROM)

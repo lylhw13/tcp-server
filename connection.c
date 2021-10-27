@@ -38,7 +38,7 @@ int read_cb(tcp_session_t *session)
     int nread;
     int fd = session->fd;
     char *buf = session->read_buf;
-    struct epoll_event ev;
+    // struct epoll_event ev;
 
     errno = 0;
     nread = read(fd, buf + session->read_pos, BUFSIZE - session->read_pos);
@@ -80,9 +80,9 @@ void write_cb(tcp_session_t* session)
         error("write in write_cb\n");
     }
     // write(fd, "\n", 1);
-    struct message *msg;
-    msg = (struct message*)(session->write_buf);
-    printf("fd %d,msg %.*s\n", session->fd, length, session->write_buf + session->write_pos);
+    // struct message *msg;
+    // msg = (struct message*)(session->write_buf);
+    // printf("fd %d,msg %.*s\n", session->fd, length, session->write_buf + session->write_pos);
 
     session->write_pos += nwrite;
     LOGD("end %s\n", __FUNCTION__);
@@ -94,7 +94,7 @@ void connect_cb(void *argus)
 {
     channel_t *channel_ptr = (channel_t *)argus;
     // LOGD("thread %ld loop address %p\n", (long)pthread_self(), channel_ptr);
-    int i, n, res, nread;
+    int i, res, nread;
     int epfd, fd;
     int nr_events;
     connection_t *conn_ptr;
