@@ -1,11 +1,5 @@
-// #include "../../generic.h"
 #include "generic.h"
 #include <string.h>
-
-int on_read_message_complete(tcp_session_t *session)
-{
-    return 0;
-}
 
 int on_write_message_complete(tcp_session_t *session)
 {

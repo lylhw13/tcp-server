@@ -140,7 +140,7 @@ threadpool_t *threadpool_init (int workernum, threadpool_dynamic_t dynamic)
     int i;
     tp = (threadpool_t*)malloc(sizeof(threadpool_t));
     if (!tp)
-        error("malloc threadpool"); 
+        error("xmalloc threadpool"); 
 
     memset(tp, 0, sizeof(threadpool_t));
 

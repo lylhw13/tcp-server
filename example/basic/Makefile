@@ -1,5 +1,5 @@
 INC_DIR = ../../
-CFLAGS = -g -I$(INC_DIR)
+CFLAGS = -g -Wall -I$(INC_DIR)
 CC = gcc
 
 LIBS = -lpthread

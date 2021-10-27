@@ -95,23 +95,9 @@ extern int create_and_bind(const char* port);
 extern int create_and_connect(const char*host, const char*port);
 extern void connect_cb(void *argus);
 
+void error(const char *str);
+void *xmalloc(size_t bytes);
+
 #define LOGD(...) fprintf(stderr, __VA_ARGS__)
-
-static void error(const char *str)
-{
-    perror(str);
-    exit(EXIT_FAILURE);
-}
-
-static void *xmalloc(size_t bytes)
-{
-    void *ptr;
-    ptr = malloc(bytes);
-    if (ptr == NULL) {
-        perror("xmalloc");
-        exit(EXIT_FAILURE);
-    }
-    return ptr;
-}
 
 #endif

@@ -111,7 +111,7 @@ void connect_cb(void *argus)
         error("epoll_create1");
 
     struct epoll_event *events;
-    events = (struct epoll_event *)malloc(sizeof(struct epoll_event) * MAX_EVENTS);
+    events = (struct epoll_event *)xmalloc(sizeof(struct epoll_event) * MAX_EVENTS);
 
     while (1)
     {

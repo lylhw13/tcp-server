@@ -73,8 +73,8 @@ server_t *server_init(const char* host, const char* port, int conn_loop_num)
     server_t *serv;
     int i;
 
-    serv = (server_t*)malloc(sizeof(server_t));
-    memset(serv, 0, sizeof(serv));
+    serv = (server_t*)xmalloc(sizeof(server_t));
+    memset(serv, 0, sizeof(server_t));
     serv->conn_loop_num = conn_loop_num;
     // serv->read_complete_cb = NULL;
     // serv->write_complete_cb = NULL;
@@ -123,7 +123,7 @@ void server_run(server_t * serv)
 
     for (i = 0; i < serv->conn_loop_num; ++i)
     {
-        job_t *job = (job_t *)malloc(sizeof(job_t *));
+        job_t *job = (job_t *)xmalloc(sizeof(job_t *));
 
         job->jobfun = &connect_cb;
         job->args = &(serv->channel_arr[i]);
@@ -170,7 +170,7 @@ void server_run(server_t * serv)
                 if (connfd < 0) {
                     LOGD("add to queue\n");
                     connfd = -connfd;
-                    curr = (struct fd_entry *)malloc(sizeof(struct fd_entry));
+                    curr = (struct fd_entry *)xmalloc(sizeof(struct fd_entry));
                     curr->fd = connfd;
                     STAILQ_INSERT_TAIL(&fdqueue_head, curr, entries);
                 }
