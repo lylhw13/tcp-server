@@ -10,7 +10,7 @@
 #include <unistd.h>
 
 #define MAX_EVENTS 64
-#define BUFSIZE 1024
+#define BUFSIZE 4096
 
 /* return value for on_read_message_fun */
 #define RCB_ERROR -1

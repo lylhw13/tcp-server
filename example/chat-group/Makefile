@@ -1,4 +1,4 @@
-INC_DIR = ../../
+INC_DIR = ../../src/
 
 CFLAGS = -g -Wall -I$(INC_DIR)
 CC = gcc
