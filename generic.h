@@ -84,17 +84,22 @@ typedef struct server {
     int add_info_size;
 } server_t;
 
-extern server_t *server_init(const char*host, const char *port, int conn_loop_num);
+/* tcp-server */
+extern server_t *server_init(const char *port, int conn_loop_num);
 extern void server_start(server_t *);
 extern void server_run(server_t *);
 extern void server_stop(server_t *);    /* anthoer thread may use this */
 extern void server_destory(server_t *);
 
+/* socket-fun */
 extern void setnonblocking(int fd);
 extern int create_and_bind(const char* port);
 extern int create_and_connect(const char*host, const char*port);
+
+/* connection */
 extern void connect_cb(void *argus);
 
+/* uility */
 void error(const char *str);
 void *xmalloc(size_t bytes);
 

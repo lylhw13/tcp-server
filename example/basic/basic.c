@@ -1,6 +1,14 @@
 #include "generic.h"
 #include <string.h>
 
+void usage(const char *program)
+{
+    fprintf(stderr, 
+        "usage: %s port thread-num\n"
+        "      thread-num should greater than 0\n", program);
+    exit(EXIT_FAILURE);
+}
+
 int on_write_message_complete(tcp_session_t *session)
 {
     if (session->write_buf == NULL) {
@@ -10,6 +18,7 @@ int on_write_message_complete(tcp_session_t *session)
         return WCB_AGAIN;
     }
 
+    /* shift buffer */
     int length = session->read_pos - session->write_pos;
     memmove(session->write_buf, session->write_buf + session->write_pos, length);
     session->read_pos -= session->write_pos;
@@ -19,14 +28,22 @@ int on_write_message_complete(tcp_session_t *session)
     return WCB_OK;
 }
 
-
-int main()
+int main(int argc, char *argv[])
 {
     server_t *serv;
-    char *host = "127.0.0.1";
-    char *port = "33333";
-    int conn_loop_num = 2;
-    serv = server_init(host, port, conn_loop_num);
+    char *port;
+    int conn_loop_num;
+
+    if (argc < 3)
+        usage(argv[0]);
+
+    port = argv[1];
+    conn_loop_num = atoi(argv[2]);
+    
+    if (conn_loop_num == 0)
+        usage(argv[0]);
+
+    serv = server_init(port, conn_loop_num);
 
     serv->write_complete_cb = on_write_message_complete;
 

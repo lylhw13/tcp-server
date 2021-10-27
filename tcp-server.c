@@ -67,7 +67,7 @@ int add_fd_channel_queue(channel_t *channel_arr, int idx, int connfd, int conn_l
     return 0;
 }
 
-server_t *server_init(const char* host, const char* port, int conn_loop_num)
+server_t *server_init(const char* port, int conn_loop_num)
 {
     int listenfd;
     server_t *serv;
