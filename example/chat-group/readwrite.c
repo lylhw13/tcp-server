@@ -103,8 +103,6 @@ void readwrite(int sockfd)
         {
             errno = 0;
             nwrite = write(pfds[POLL_NETOUT].fd, stdinbuf, stdinbufpos);
-            printf("nwrite %d\n", nwrite);
-            perror("nwrite");
             if (nwrite < 0) {
                 if (errno == EAGAIN)
                     continue;
