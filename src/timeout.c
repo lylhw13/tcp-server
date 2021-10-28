@@ -2,6 +2,9 @@
 #include "tree.h"
 
 #include <sys/time.h>
+#include <assert.h>
+
+static struct timeval validity_period = {10,0}; /* 5 seconds */
 
 int compare(struct tcp_session *t1, struct tcp_session *t2)
 {
@@ -13,8 +16,12 @@ int compare(struct tcp_session *t1, struct tcp_session *t2)
     return 0;
 }
 
+RB_PROTOTYPE(event_tree, tcp_session, entry, compare);
+RB_GENERATE(event_tree, tcp_session, entry, compare);
+
 void timeout_insert(struct tcp_session *ts, struct event_tree *head)
 {
+    LOGD("%s\n", __FUNCTION__);
     struct tcp_session *tmp;
     tmp = RB_FIND(event_tree, head, ts);
     
@@ -35,7 +42,7 @@ void timeout_insert(struct tcp_session *ts, struct event_tree *head)
     assert(tmp == NULL);
 }
 
-void timeout_process(struct event_tree *head, void(*funcb)(void *,void *))
+void timeout_process(struct event_tree *head, void(*funcb)(struct tcp_session *,struct event_tree *))
 {
     struct timeval now;
     struct tcp_session *ts, *next;
@@ -47,11 +54,20 @@ void timeout_process(struct event_tree *head, void(*funcb)(void *,void *))
             break;
         
         next = RB_NEXT(event_tree, head, ts);
-        LOGD("remove fd %d at %ld %ld\n", ts->fd, ts->ev_timeout.tv_sec, ts->ev_timeout.tv_usec);
+        LOGD("remove fd %d, val %ld %ld at %ld %ld\n", ts->fd, ts->ev_timeout.tv_sec, ts->ev_timeout.tv_usec, now.tv_sec, now.tv_usec);
         // RB_REMOVE(event_tree, head, ts);
         // epoll_ctl(ts->epfd, EPOLL_CTL_DEL, ts->fd, NULL);
         funcb(ts, head);
     }
+}
+
+void timeout_remove(struct tcp_session *ts, struct event_tree *head)
+{
+    LOGD("%s\n", __FUNCTION__);
+    // struct timeval now;
+    // gettimeofday(&now, NULL);
+    // LOGD("remove fd")
+    RB_REMOVE(event_tree, head, ts);
 }
 
 void timeout_set(struct tcp_session *ts, struct event_tree *head)
