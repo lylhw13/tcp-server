@@ -48,11 +48,11 @@ void readwrite(int sockfd)
     while (1)
     {
         /* no read */
-        if (pfds[POLL_STDIN].fd == -1 && pfds[POLL_NETIN].fd == -1) 
+        if (pfds[POLL_STDIN].fd == -1 || pfds[POLL_NETIN].fd == -1) 
                 return;
 
         /* no write */
-        if (pfds[POLL_STDOUT].fd == -1 && pfds[POLL_NETOUT].fd == -1)
+        if (pfds[POLL_STDOUT].fd == -1 || pfds[POLL_NETOUT].fd == -1)
             return;
 
         numfds = poll(pfds, 4, timeout);
@@ -103,12 +103,13 @@ void readwrite(int sockfd)
         {
             errno = 0;
             nwrite = write(pfds[POLL_NETOUT].fd, stdinbuf, stdinbufpos);
+            printf("nwrite %d\n", nwrite);
+            perror("nwrite");
             if (nwrite < 0) {
                 if (errno == EAGAIN)
                     continue;
                 else 
                     error("netout write");
-
             }
 
             stdinbufpos -= nwrite;

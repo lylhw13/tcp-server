@@ -3,9 +3,9 @@ INC_DIR = ../../src/
 CFLAGS = -Wall -I$(INC_DIR)
 CC = gcc
 
-# ifdef DEBUG
+ifdef DEBUG
 CFLAGS += -g -DDEBUG
-# endif
+endif
 
 LIBS = -lpthread
 

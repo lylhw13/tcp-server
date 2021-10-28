@@ -40,11 +40,11 @@ void timeout_insert(struct event_tree *head, struct tcp_session *ts)
     tmp = RB_INSERT(event_tree, head, ts);
     assert(tmp == NULL);
 
-// #ifdef DEBUG
+#ifdef DEBUG
     struct timeval now;
     gettimeofday(&now, NULL);
     LOGD("head %p add fd %d, val %ld, %ld, at %ld, %ld \n", head, ts->fd, ts->ev_timeout.tv_sec, ts->ev_timeout.tv_usec, now.tv_sec, now.tv_usec);
-// #endif
+#endif
 }
 
 void timeout_process(struct event_tree *head, void(*funcb)(struct event_tree *, struct tcp_session *))
@@ -69,14 +69,16 @@ void timeout_remove(struct event_tree *head, struct tcp_session *ts)
 
     struct tcp_session *tmp;
     tmp = RB_FIND(event_tree, head, ts);
-    if (tmp != NULL)
-        RB_REMOVE(event_tree, head, ts);
+    if (tmp == NULL)
+        return;
+        
+    RB_REMOVE(event_tree, head, ts);
     
-// #ifdef DEBUG
+#ifdef DEBUG
     struct timeval now;
     gettimeofday(&now, NULL);
     LOGD("head %p remove fd %d, val %ld %ld at %ld %ld\n", head, ts->fd, ts->ev_timeout.tv_sec, ts->ev_timeout.tv_usec, now.tv_sec, now.tv_usec);
-// #endif
+#endif
 }
 
 void timeout_set(struct event_tree *head, struct tcp_session *ts )

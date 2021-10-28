@@ -36,7 +36,7 @@ void free_session(tcp_session_t *session)
 
 void remove_session(struct event_tree *head, tcp_session_t *session)
 {
-    // RB_REMOVE(event_tree, head, session);
+    close(session->fd);
     timeout_remove(head, session);
     epoll_ctl(session->epfd, EPOLL_CTL_DEL, session->fd, NULL);
     free_session(session);
