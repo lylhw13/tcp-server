@@ -110,12 +110,17 @@ void error(const char *str);
 void *xmalloc(size_t bytes);
 
 /* timeout */
+/* declare */
+RB_HEAD(event_tree, tcp_session);
+RB_PROTOTYPE(event_tree, tcp_session, entry, compare);
+RB_GENERATE(event_tree, tcp_session, entry, compare);
+
 struct timeval validity_period = {5,0}; /* 5 seconds */
 extern int compare(struct tcp_session *t1, struct tcp_session *t2);
-extern void timeout_insert(struct tcp_session *ts);
-extern void timeout_process(void);
-extern void timeout_set(struct tcp_session *ts);
-extern void timeout_update(struct tcp_session *ts);
+extern void timeout_insert(struct tcp_session *ts, struct event_tree *head);
+extern void timeout_process(struct event_tree *head, void(*funcb)(void *,void *));
+extern void timeout_set(struct tcp_session *ts, struct event_tree *head);
+extern void timeout_update(struct tcp_session *ts, struct event_tree *head);
 
 
 #endif

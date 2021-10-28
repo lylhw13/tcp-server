@@ -48,6 +48,13 @@ void free_session(tcp_session_t *session)
     free(session);
 }
 
+void remove_session(tcp_session_t *session, struct event_tree *head)
+{
+    RB_REMOVE(event_tree, head, session);
+    epoll_ctl(session->epfd, EPOLL_CTL_DEL, session->fd, NULL);
+    free_session(session);
+}
+
 int read_cb(tcp_session_t *session)
 {
     // LOGD("%s\n", __FUNCTION__);
@@ -112,6 +119,9 @@ void connect_cb(void *argus)
     struct epoll_event ev;
     static struct timeval event_tv;
 
+    RB_HEAD(event_tree, tcp_session) head;
+    RB_INIT(&head);
+
     serv = channel_ptr->serv;
     epfd = epoll_create1(0);
     if (epfd < 0)
@@ -133,8 +143,9 @@ void connect_cb(void *argus)
             if (events[i].events & EPOLLIN) {
                 /* normal read */
                 if ((nread = read_cb(events[i].data.ptr)) == 0) {
-                    epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
-                    free_session(session);
+                    // epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
+                    // free_session(session);
+                    remove_session(session, &head);
                     continue;
                 }
                 /* read_message_cb */
@@ -148,8 +159,9 @@ void connect_cb(void *argus)
                             LOGD("TOO LONG MESSAGE\n");
                             /* fall through */
                         case RCB_ERROR:
-                            epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
-                            free_session(session);
+                            // epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
+                            // free_session(session);
+                            remove_session(session, &head);
                             continue;
                         default:
                             break;
@@ -163,14 +175,17 @@ void connect_cb(void *argus)
                 if (write_message_cb != NULL) {
                     res = write_message_cb(session);
                     if (res == WCB_ERROR) {
-                        epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
-                        free_session(session);
+                        // epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
+                        // free_session(session);
+                        remove_session(session, &head);
                         continue;
                     }
                 }
             }
+            timeout_update(session, &head);
         } /* end for */
 
+        timeout_process(&head, remove_session);
 
         if (channel_ptr->len == 0)
             continue;
@@ -200,8 +215,7 @@ void connect_cb(void *argus)
         if (epoll_ctl(epfd, EPOLL_CTL_ADD, session_new->fd, &ev) != 0)
             error("add fd to epoll in thread");
 
-        gettimeofday(&(session_new->ev_timeout), NULL);
-        timeradd(&(session_new->ev_timeout), &validity_period, &(session_new->ev_timeout));
+        timeout_insert(session_new, &head);
         free(conn_ptr);
     }     /* end while */
 }
