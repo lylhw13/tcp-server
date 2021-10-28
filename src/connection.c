@@ -34,10 +34,10 @@ void free_session(tcp_session_t *session)
     free(session);
 }
 
-void remove_session(tcp_session_t *session, struct event_tree *head)
+void remove_session(struct event_tree *head, tcp_session_t *session)
 {
     // RB_REMOVE(event_tree, head, session);
-    timeout_remove(session, head);
+    timeout_remove(head, session);
     epoll_ctl(session->epfd, EPOLL_CTL_DEL, session->fd, NULL);
     free_session(session);
 }
@@ -164,7 +164,7 @@ void connect_cb(void *argus)
             if (events[i].events & EPOLLIN) {
                 /* normal read */
                 if ((nread = read_cb(events[i].data.ptr)) == 0) {
-                    remove_session(session, &head);
+                    remove_session(&head, session);
                     continue;
                 }
 
@@ -182,7 +182,7 @@ void connect_cb(void *argus)
                             LOGD("TOO LONG MESSAGE\n");
                             /* fall through */
                         case RCB_ERROR:
-                            remove_session(session, &head);
+                            remove_session(&head, session);
                             continue;
                         default:
                             break;
@@ -196,7 +196,7 @@ void connect_cb(void *argus)
                 if (write_message_cb != NULL) {
                     res = write_message_cb(session);
                     if (res == WCB_ERROR) {
-                        remove_session(session, &head);
+                        remove_session(&head, session);
                         continue;
                     }
                 }
@@ -204,7 +204,7 @@ void connect_cb(void *argus)
                     read_write_state = 1;
             }
             if (read_write_state)
-                timeout_update(session, &head);
+                timeout_update(&head, session);
         } /* end for */
 
         timeout_process(&head, remove_session);
@@ -237,8 +237,8 @@ void connect_cb(void *argus)
         if (epoll_ctl(epfd, EPOLL_CTL_ADD, session_new->fd, &ev) != 0)
             error("add fd to epoll in thread");
 
-        timeout_set(session_new, &head);
-        timeout_insert(session_new, &head);
+        timeout_set(&head, session_new);
+        timeout_insert(&head, session_new);
         free(conn_ptr);
     }     /* end while */
 }

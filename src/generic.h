@@ -115,12 +115,12 @@ void *xmalloc(size_t bytes);
 /* declare */
 // extern int compare(struct tcp_session *t1, struct tcp_session *t2);
 RB_HEAD(event_tree, tcp_session);
-extern void timeout_insert(struct tcp_session *ts, struct event_tree *head);
+extern void timeout_insert(struct event_tree *head, struct tcp_session *ts);
 // extern void timeout_process(struct event_tree *head, void(*funcb)(void *,void *));
-extern void timeout_remove(struct tcp_session *ts, struct event_tree *head);
-extern void timeout_process(struct event_tree *head, void(*funcb)(struct tcp_session *,struct event_tree *));
-extern void timeout_set(struct tcp_session *ts, struct event_tree *head);
-extern void timeout_update(struct tcp_session *ts, struct event_tree *head);
+extern void timeout_remove(struct event_tree *head, struct tcp_session *ts);
+extern void timeout_process(struct event_tree *head, void(*funcb)(struct event_tree *, struct tcp_session *));
+extern void timeout_set(struct event_tree *head, struct tcp_session *ts);
+extern void timeout_update(struct event_tree *head, struct tcp_session *ts);
 
 
 #endif
