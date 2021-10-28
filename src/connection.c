@@ -128,7 +128,7 @@ void connect_cb(void *argus)
     channel_t *channel_ptr = (channel_t *)argus;
     // LOGD("thread %ld loop address %p\n", (long)pthread_self(), channel_ptr);
     int i, res, nread, nwrite;
-    int epfd, fd;
+    int epfd;
     int nr_events;
     connection_t *conn_ptr;
     tcp_session_t *session;
@@ -136,7 +136,7 @@ void connect_cb(void *argus)
     on_read_complete_fun parse_message_cb;
     on_write_complete_fun write_message_cb;
     struct epoll_event ev;
-    static struct timeval event_tv;
+    // static struct timeval event_tv;
     int read_write_state = 0;
 
     struct event_tree head;
@@ -161,7 +161,6 @@ void connect_cb(void *argus)
             read_write_state = 0;
 
             session = (tcp_session_t*)events[i].data.ptr;
-            fd = session->fd;
             if (events[i].events & EPOLLIN) {
                 /* normal read */
                 if ((nread = read_cb(events[i].data.ptr)) == 0) {
