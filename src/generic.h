@@ -48,10 +48,10 @@ typedef struct channel
 
 typedef struct tcp_session {
     RB_ENTRY(tcp_session) entry;
+    struct timeval ev_timeout;
+
     int fd;
     int epfd;
-
-    struct timeval ev_timeout;
 
     /* for read */
     char read_buf[BUFSIZE];
@@ -110,12 +110,12 @@ void error(const char *str);
 void *xmalloc(size_t bytes);
 
 /* timeout */
-struct timeval validity_period = {5,0}; /* 5 seconds */
-extern int compare(struct tcp_session *t1, struct tcp_session *t2);
-extern void timeout_insert(struct tcp_session *ts);
-extern void timeout_process(void);
-extern void timeout_set(struct tcp_session *ts);
-extern void timeout_update(struct tcp_session *ts);
+RB_HEAD(event_tree, tcp_session);
+extern void timeout_insert(struct event_tree *head, struct tcp_session *ts);
+extern void timeout_remove(struct event_tree *head, struct tcp_session *ts);
+extern void timeout_process(struct event_tree *head, void(*funcb)(struct event_tree *, struct tcp_session *));
+extern void timeout_set(struct event_tree *head, struct tcp_session *ts);
+extern void timeout_update(struct event_tree *head, struct tcp_session *ts);
 
 
 #endif

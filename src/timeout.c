@@ -2,6 +2,9 @@
 #include "tree.h"
 
 #include <sys/time.h>
+#include <assert.h>
+
+static struct timeval validity_period = {50,0}; /* seconds */
 
 int compare(struct tcp_session *t1, struct tcp_session *t2)
 {
@@ -13,54 +16,72 @@ int compare(struct tcp_session *t1, struct tcp_session *t2)
     return 0;
 }
 
-RB_HEAD(event_tree, tcp_session) time_tree = RB_INITIALIZER(&time_tree);
 RB_PROTOTYPE(event_tree, tcp_session, entry, compare);
 RB_GENERATE(event_tree, tcp_session, entry, compare);
 
-
-void timeout_insert(struct tcp_session *ts)
+void timeout_insert(struct event_tree *head, struct tcp_session *ts)
 {
+    LOGD("%s\n", __FUNCTION__);
     struct tcp_session *tmp;
-    tmp = RB_FIND(event_tree, &time_tree, ts);
+    tmp = RB_FIND(event_tree, head, ts);
 
     if (tmp != NULL) {
         struct timeval tv;
         struct timeval add={0,1};
 
-        /* find a unique time, to keep every tcp_session */
         tv = ts->ev_timeout;
         do {
             timeradd(&tv, &add, &tv);
-            tmp = RB_NEXT(event_tree, &time_tree, tmp);
+            tmp = RB_NEXT(event_tree, head, tmp);
         } while (tmp != NULL && timercmp(&tv, &(tmp->ev_timeout), ==));
 
         ts->ev_timeout = tv;
     }
-    LOGD("add fd %d, at %ld, %ld\n", ts->fd, ts->ev_timeout.tv_sec, ts->ev_timeout.tv_usec);
-    tmp = RB_INSERT(event_tree, &time_tree, ts);
+    tmp = RB_INSERT(event_tree, head, ts);
     assert(tmp == NULL);
+
+#ifdef DEBUG
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    LOGD("head %p add fd %d, val %ld, %ld, at %ld, %ld \n", head, ts->fd, ts->ev_timeout.tv_sec, ts->ev_timeout.tv_usec, now.tv_sec, now.tv_usec);
+#endif
 }
 
-void timeout_process(void)
+void timeout_process(struct event_tree *head, void(*funcb)(struct event_tree *, struct tcp_session *))
 {
     struct timeval now;
     struct tcp_session *ts, *next;
-
+    
     gettimeofday(&now, NULL);
 
-    for (ts = RB_MIN(event_tree, &time_tree); ts; ts = next) {
-        if (timercmp(&(ts->ev_timeout), &now, >=))
+    for(ts = RB_MIN(event_tree, head); ts; ts = next) {
+        if (timercmp(&(ts->ev_timeout), &now, >))
             break;
-
-        next = RB_NEXT(event_tree, &time_tree, ts);
-
-        LOGD("remove fd %d at %ld, %ld\n", ts->fd, ts->ev_timeout.tv_sec, ts->ev_timeout.tv_usec);
-        RB_REMOVE(event_tree, &time_tree, ts);
-        epoll_ctl(ts->epfd, EPOLL_CTL_DEL, ts->fd, NULL);
+        
+        next = RB_NEXT(event_tree, head, ts);
+        funcb(head, ts);
     }
 }
 
-void timeout_set(struct tcp_session *ts)
+void timeout_remove(struct event_tree *head, struct tcp_session *ts)
+{
+    LOGD("%s\n", __FUNCTION__);
+
+    struct tcp_session *tmp;
+    tmp = RB_FIND(event_tree, head, ts);
+    if (tmp == NULL)
+        return;
+        
+    RB_REMOVE(event_tree, head, ts);
+    
+#ifdef DEBUG
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    LOGD("head %p remove fd %d, val %ld %ld at %ld %ld\n", head, ts->fd, ts->ev_timeout.tv_sec, ts->ev_timeout.tv_usec, now.tv_sec, now.tv_usec);
+#endif
+}
+
+void timeout_set(struct event_tree *head, struct tcp_session *ts )
 {
     struct timeval now;
     gettimeofday(&now, NULL);
@@ -68,9 +89,12 @@ void timeout_set(struct tcp_session *ts)
     ts->ev_timeout = now;
 }
 
-void timeout_update(struct tcp_session *ts)
+void timeout_update(struct event_tree *head, struct tcp_session *ts)
 {
-    RB_REMOVE(event_tree, &time_tree, ts);
-    timeout_set(ts);
-    timeout_insert(ts);
+    // LOGD("%s\n", __FUNCTION__);
+
+    // RB_REMOVE(event_tree, head, ts);
+    timeout_remove(head, ts);
+    timeout_set(head, ts);
+    timeout_insert(head, ts);
 }

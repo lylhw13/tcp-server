@@ -10,21 +10,7 @@
  * write complete 
  */
 
-int compare(struct tcp_session *t1, struct tcp_session *t2)
-{
-    if (timercmp(&(t1->ev_timeout), &(t2->ev_timeout), <))
-        return -1;
-    else if (timercmp(&(t1->ev_timeout), &(t2->ev_timeout), >))
-        return 1;
-
-    return 0;
-}
-
-RB_HEAD(event_tree, tcp_session) time_tree = RB_INITIALIZER(&time_tree);
-RB_PROTOTYPE(event_tree, tcp_session, entry, compare);
-RB_GENERATE(event_tree, tcp_session, entry, compare);
-
-tcp_session_t * create_session(int fd, int epfd, server_t *serv)
+static tcp_session_t * create_session(int fd, int epfd, server_t *serv)
 {
     tcp_session_t* session = (tcp_session_t*)calloc(1, sizeof(tcp_session_t));
     session->fd = fd;
@@ -40,7 +26,7 @@ tcp_session_t * create_session(int fd, int epfd, server_t *serv)
     return session;
 }
 
-void free_session(tcp_session_t *session)
+static void free_session(tcp_session_t *session)
 {
     LOGD("%s\n", __FUNCTION__);
     if (session->additional_info)
@@ -48,9 +34,16 @@ void free_session(tcp_session_t *session)
     free(session);
 }
 
-int read_cb(tcp_session_t *session)
+static void remove_session(struct event_tree *head, tcp_session_t *session)
 {
-    // LOGD("%s\n", __FUNCTION__);
+    close(session->fd);
+    timeout_remove(head, session);
+    epoll_ctl(session->epfd, EPOLL_CTL_DEL, session->fd, NULL);
+    free_session(session);
+}
+
+static int read_cb(tcp_session_t *session)
+{
     int nread;
     int fd = session->fd;
     char *buf = session->read_buf;
@@ -70,47 +63,81 @@ int read_cb(tcp_session_t *session)
     session->read_pos += nread;
     return nread;
 }
-void write_cb(tcp_session_t* session)
+static int write_cb(tcp_session_t* session)
 {
-    // LOGD("%s\n", __FUNCTION__);
     int nwrite;
     int length;
     int fd = session->fd;
 
     if (session->write_buf == NULL)
-        return ;
+        return 0;
 
     length = session->write_size - session->write_pos;
     if (length == 0)
-        return;
+        return 0;
     errno = 0;
     nwrite = write(fd, session->write_buf + session->write_pos, length);
     if (nwrite < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
-            return;
+            return 0;
 
         error("write in write_cb\n");
     }
 
     session->write_pos += nwrite;
-    return ;
+    return nwrite;
 }
+
+static void add_new_session(int epfd, channel_t *channel_ptr, struct event_tree *head)
+{
+    int err;
+    connection_t *conn_ptr;
+    struct epoll_event ev;
+
+    err = pthread_mutex_trylock(&(channel_ptr->lock));
+    LOGD("lock in thread\n");
+    LOGD("address %p, len %d\n", channel_ptr, channel_ptr->len);
+    if (err == EBUSY)
+        return;
+    if (err != 0)
+        error("try lock in thread");
+    if (channel_ptr->len == 0) {
+        pthread_mutex_unlock(&(channel_ptr->lock));
+        return;
+    }
+    conn_ptr = channel_ptr->head;
+    channel_ptr->head = conn_ptr->next;
+    channel_ptr->len --;
+
+    LOGD("loop get fd %d\n", conn_ptr->fd);
+    pthread_mutex_unlock(&(channel_ptr->lock));
+
+    tcp_session_t* session_new = create_session(conn_ptr->fd, epfd, channel_ptr->serv);
+    ev.data.ptr = session_new;
+    ev.events = EPOLLIN | EPOLLOUT;
+    if (epoll_ctl(epfd, EPOLL_CTL_ADD, session_new->fd, &ev) != 0)
+        error("add fd to epoll in thread");
+
+    timeout_set(head, session_new);
+    timeout_insert(head, session_new);
+    free(conn_ptr);
+}
+
 
 /* infinite loop */
 void connect_cb(void *argus)
 {
     channel_t *channel_ptr = (channel_t *)argus;
-    // LOGD("thread %ld loop address %p\n", (long)pthread_self(), channel_ptr);
-    int i, res, nread;
-    int epfd, fd;
-    int nr_events;
-    connection_t *conn_ptr;
+    int i, res;
+    int epfd, nr_events;
+    int nread, nwrite,read_write_state = 0;
     tcp_session_t *session;
     server_t *serv;
     on_read_complete_fun parse_message_cb;
     on_write_complete_fun write_message_cb;
-    struct epoll_event ev;
-    static struct timeval event_tv;
+    struct event_tree head;
+
+    RB_INIT(&head);
 
     serv = channel_ptr->serv;
     epfd = epoll_create1(0);
@@ -128,15 +155,19 @@ void connect_cb(void *argus)
             error("epoll_wait");
         }
         for (i = 0; i < nr_events; ++i) {
+            read_write_state = 0;
+
             session = (tcp_session_t*)events[i].data.ptr;
-            fd = session->fd;
             if (events[i].events & EPOLLIN) {
                 /* normal read */
                 if ((nread = read_cb(events[i].data.ptr)) == 0) {
-                    epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
-                    free_session(session);
+                    remove_session(&head, session);
                     continue;
                 }
+
+                if (nread > 0)
+                    read_write_state = 1;
+
                 /* read_message_cb */
                 parse_message_cb = serv->read_complete_cb;
                 if (parse_message_cb != NULL) {
@@ -148,8 +179,7 @@ void connect_cb(void *argus)
                             LOGD("TOO LONG MESSAGE\n");
                             /* fall through */
                         case RCB_ERROR:
-                            epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
-                            free_session(session);
+                            remove_session(&head, session);
                             continue;
                         default:
                             break;
@@ -158,51 +188,26 @@ void connect_cb(void *argus)
             }
             if (events[i].events & EPOLLOUT) {
                 /* normal write */
-                write_cb(session);
+                nwrite = write_cb(session);
                 write_message_cb = serv->write_complete_cb;
                 if (write_message_cb != NULL) {
                     res = write_message_cb(session);
                     if (res == WCB_ERROR) {
-                        epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
-                        free_session(session);
+                        remove_session(&head, session);
                         continue;
                     }
                 }
+                if (nwrite > 0)
+                    read_write_state = 1;
             }
+            if (read_write_state)
+                timeout_update(&head, session);
         } /* end for */
 
+        timeout_process(&head, remove_session);
 
-        if (channel_ptr->len == 0)
-            continue;
-
-        int err;
-        err = pthread_mutex_trylock(&(channel_ptr->lock));
-        LOGD("lock in thread\n");
-        LOGD("address %p, len %d\n", channel_ptr, channel_ptr->len);
-        if (err == EBUSY)
-            continue;
-        if (err != 0)
-            error("try lock in thread");
-        if (channel_ptr->len == 0) {
-            pthread_mutex_unlock(&(channel_ptr->lock));
-            continue;
-        }
-        conn_ptr = channel_ptr->head;
-        channel_ptr->head = conn_ptr->next;
-        channel_ptr->len --;
-
-        LOGD("loop get fd %d\n", conn_ptr->fd);
-        pthread_mutex_unlock(&(channel_ptr->lock));
-
-        tcp_session_t* session_new = create_session(conn_ptr->fd, epfd, serv);
-        ev.data.ptr = session_new;
-        ev.events = EPOLLIN | EPOLLOUT;
-        if (epoll_ctl(epfd, EPOLL_CTL_ADD, session_new->fd, &ev) != 0)
-            error("add fd to epoll in thread");
-
-        gettimeofday(&(session_new->ev_timeout), NULL);
-        timeradd(&(session_new->ev_timeout), &validity_period, &(session_new->ev_timeout));
-        free(conn_ptr);
+        if (channel_ptr->len > 0)
+            add_new_session(epfd, channel_ptr, &head);
     }     /* end while */
 }
 

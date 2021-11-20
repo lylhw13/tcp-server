@@ -1,6 +1,6 @@
 INC_DIR = ../../src/
 
-CFLAGS = -Wall -I$(INC_DIR)
+CFLAGS = -I$(INC_DIR) -Wall
 CC = gcc
 
 ifdef DEBUG
