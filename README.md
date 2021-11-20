@@ -1,11 +1,9 @@
-# tcp-server
-tcp chat
-sendfile
-pingpong
+## A TCP-server in C.
+This is a multi-threading tcp-server in c, based on reactor pattern.
 
-a fd in a event loop, so don't need to consider mutex
+## Example 
+- basic usage
+- chat-group
 
-TCP_NODELAY
-TCP_KEEPLIVE
-
-SIG_PIPE ignore
+## Test on:
+ Ubuntu 20.04
