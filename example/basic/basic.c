@@ -1,3 +1,8 @@
+/* 
+ * This is a basic example of using tcp-server library.
+ * The basic server will send back everthing it recevied.
+ */
+
 #include "generic.h"
 #include <string.h>
 
