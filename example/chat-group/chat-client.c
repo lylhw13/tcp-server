@@ -1,3 +1,10 @@
+/*
+ * This is chat group client.
+ * The client has two mode: client mode or server mode.
+ * client mode can be used in chat-group. It will be one of clients of chat-group server.
+ * server mode is used in point-to-point chat. One point is in client mode and the other point in server mode.
+ */
+
 #include "chat.h"
 #include "generic.h"
 
@@ -9,10 +16,6 @@
 #include <sys/poll.h>
 #include <stddef.h>
 #include <fcntl.h>
-
-/*
- * the client has two mode: client mode or server mode
- */
 
 static void usage(const char *program)
 {

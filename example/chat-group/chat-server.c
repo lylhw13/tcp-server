@@ -1,3 +1,8 @@
+/* 
+ * This is chat group server.
+ * It will deliver messages to every client. 
+ */
+
 #include "generic.h"
 #include "chat.h"
 #include <string.h>
@@ -10,7 +15,7 @@
 #define MESSAGE_PARTIAL     RCB_NEED_MORE
 #define MESSAGE_LOCK_AGAIN  RCB_AGAIN
 
-void print_msg(struct message_queue*head)
+static void print_msg(struct message_queue*head)
 {
     LOGD("----%s\n", __FUNCTION__);
     struct message_entry *msg_entry = STAILQ_FIRST(head);
